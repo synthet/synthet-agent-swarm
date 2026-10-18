@@ -1,14 +1,22 @@
 import { resolve } from "node:path";
-import type { SubagentMode, SubagentName, WorkspaceSnapshot } from "../types.js";
+import type { SubagentMode, WorkspaceSnapshot } from "../types.js";
 
-const JUDGE_HOW: Record<SubagentName, string> = {
+const JUDGE_HOW = {
   codex:
     "Image files in the evidence list are attached to this call, in listed order. Do not modify files.",
   claude:
     "Use the Read tool on each evidence file before answering. Do not modify files or open unlisted paths.",
   antigravity:
     "Open each evidence file and look at it. Do not modify files or run programs.",
-};
+} as const;
+
+function judgeHow(agent: string): string {
+  if (agent === "codex" || agent === "claude" || agent === "antigravity") {
+    return JUDGE_HOW[agent];
+  }
+  if (agent === "agy") return JUDGE_HOW.antigravity;
+  return "Read only the listed evidence. Do not modify files or run programs.";
+}
 
 export function blindSnapshot(workspaceRoot: string): WorkspaceSnapshot {
   return {
@@ -27,7 +35,7 @@ export function buildJudgePrompt(input: PromptBuildInput): string {
   const lines = [
     `Independent judge (${input.agent}). Answer only from the task and the evidence list.`,
     "",
-    JUDGE_HOW[input.agent],
+    judgeHow(input.agent),
     "",
     "## Task",
     input.task.trim(),
@@ -52,7 +60,7 @@ export function buildJudgePrompt(input: PromptBuildInput): string {
 }
 
 export interface PromptBuildInput {
-  agent: SubagentName;
+  agent: string;
   task: string;
   workspaceRoot: string;
   mode: SubagentMode;

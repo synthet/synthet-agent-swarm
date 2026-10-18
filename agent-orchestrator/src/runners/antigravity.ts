@@ -14,6 +14,7 @@ import type {
   SubagentRequest,
   SubagentResult,
 } from "../types.js";
+import { applyModel } from "../harness/registry.js";
 import { createErrorResult, finalizeResult } from "./base.js";
 import { detectAntigravity, getAntigravityCommand } from "./detection.js";
 
@@ -37,12 +38,13 @@ export function buildAntigravityArgv(
   prompt: string,
   detection: AgentDetectionInfo,
   addDirs: string[] = [],
+  model?: string,
 ): string[] {
   const flag = detection.promptFlag ?? "-p";
   const command = detection.command || getAntigravityCommand();
   const argv = [command, flag, prompt];
   for (const dir of addDirs) argv.push("--add-dir", dir);
-  return argv;
+  return applyModel(argv, "agy", model);
 }
 
 export async function runAntigravity(
@@ -74,6 +76,7 @@ export async function runAntigravity(
     request.mode === "judge"
       ? evidenceDirectories(request.workspaceRoot, request.files)
       : [],
+    request.model,
   );
   const commandPreview = formatCommandPreview(argv);
 

@@ -1,33 +1,5 @@
-# Check external CLI sub-agents
+# Moved
 
-Detect which external coding CLIs are available on PATH via the **synthet-agent-swarm** MCP server.
+Use `/swarm` and the `external-swarm` subagent.
 
-## Goal
-
-Report availability of **codex**, **antigravity**, and **claude** before delegating a review.
-
-## Steps
-
-1. Follow skill **`subagent-review`** (Step 1-2 only).
-2. Call MCP tool **`detect_subagents`** on server **synthet-agent-swarm**.
-3. Present a table: agent | available | mode | version | notes.
-4. If none are available for review, say which installs/auth steps the user likely needs (without inventing API keys).
-
-## Output format
-
-```markdown
-## Sub-agent detection
-
-| Agent | Available | Mode | Version | Notes |
-|-------|-----------|------|---------|-------|
-| codex | ... | ... | ... | ... |
-| antigravity | ... | ... | ... | ... |
-| claude | ... | ... | ... | ... |
-
-**Ready for review:** codex, antigravity (example)
-**Not runnable in v0.1:** claude (detection only)
-```
-
-## Related
-
-- Skill: `subagent-review` - Rule: `external-cli-subagents.mdc` - [AGENTS.md](../../AGENTS.md)
+`/swarm` calls `swarm_search`, then `swarm_run` or `run_judge_panel`. Set `dryRun: true` when the user says dry run. Do not spawn `codex`, `agy`, `claude`, or `agent` in the terminal.

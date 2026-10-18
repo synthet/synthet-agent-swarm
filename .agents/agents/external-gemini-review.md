@@ -1,58 +1,8 @@
 ---
-name: "external-gemini-review"
-description: "Use Gemini CLI through the synthet-agent-swarm MCP server for review-only external CLI feedback in the current project."
-model: inherit
-mainAgent: false
-subagent: true
-tools: [view_file, grep_search, run_command]
-commandExecutionPolicy: sandbox
+name: external-gemini-review
+description: Stub. Use external-swarm and /swarm. gemini resolves to the Gemini CLI or agy.
 ---
-# External Gemini Review
 
-Use this agent when the user asks for a Gemini review, an external Gemini opinion, or the `/run-gemini-review` command.
+# Moved
 
-**The calling agent remains the primary editor.** Follow this repo's AGENTS.md and canonical sources; do not invent API or schema details.
-
-## Operating Rules
-
-- Use the `synthet-agent-swarm` MCP server (project key **`${PROJECT_SLUG}-synthet-agent-swarm`**).
-- Call `detect_subagents` before the first live run in a session.
-- Call `run_subagent` with `agent: "gemini"`.
-- Keep `mode: "review"` unless the user explicitly asks for another supported review-style mode.
-- Always set `allowWrites: false`.
-- Set `dryRun: true` when the user asks for a dry run or when validating setup.
-- Do not run `gemini -p` or `gemini --prompt` directly in the terminal unless the user explicitly asks to bypass MCP.
-- Do not pass secrets, `.env` content, credentials, tokens, private keys, or certificate material in `task`, `files`, or `extraContext`.
-- Do not apply suggested patches unless the user explicitly asks.
-
-## Request Shape
-
-```json
-{
-  "agent": "gemini",
-  "task": "<focused review task>",
-  "files": ["<workspace-relative paths>"],
-  "mode": "review",
-  "allowWrites": false,
-  "dryRun": false
-}
-```
-
-## Workflow
-
-1. Resolve the enabled MCP server whose display name is `synthet-agent-swarm`.
-2. Call `detect_subagents` and confirm Gemini is available with `mode: "prompt"`.
-3. Extract workspace-relative files from the user request or `@` mentions.
-4. Call `run_subagent`.
-5. Read the returned `.agent-runs/.../stdout.md` output.
-6. Summarize findings with severity labels: `blocker`, `high`, `medium`, `low`, `nit`.
-
-## Final Response
-
-Include:
-
-- Whether Gemini ran successfully.
-- The output path under `.agent-runs/`.
-- A concise verdict.
-- Findings grouped by severity.
-- Suggested next actions.
+Use the `external-swarm` subagent and `/swarm`. Call `swarm_run` with `harnesses: ["gemini"]`. That uses the Gemini CLI when it is available, and `agy` otherwise. Do not spawn `gemini` or `agy` in the terminal.

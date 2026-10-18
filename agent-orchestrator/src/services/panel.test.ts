@@ -34,6 +34,19 @@ describe("panelSwarmInput", () => {
     expect(swarm.extraContext).toBeUndefined();
   });
 
+  it("passes harnesses and model through to the swarm input", () => {
+    const swarm = panelSwarmInput({
+      task: "Choose A or B",
+      items: [{ id: "a", files: ["blind/a.jpg"] }],
+      harnesses: ["cursor", "agy"],
+      model: "gpt-5",
+      transport: "auto",
+    });
+    expect(swarm.harnesses).toEqual(["cursor", "agy"]);
+    expect(swarm.model).toBe("gpt-5");
+    expect(swarm.transport).toBe("auto");
+  });
+
   it("passes extra context only when the panel is informed", () => {
     const swarm = panelSwarmInput({
       task: "Choose A or B",

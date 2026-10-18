@@ -1,8 +1,8 @@
 # AGENTS.md - synthet-agent-swarm
 
-This repository is a **local MCP swarm of read-only LLM judges** (Codex, Antigravity, Claude). One shared judgement is fanned out, raw replies are stored, and strict-majority agreement is reported. Ties stay disputed. Votes are not ground truth.
+This repository is a **local MCP swarm of read-only LLM judges**. Harnesses are `codex`, `claude`, `agy` (Antigravity), `cursor` (`agent`), `gemini`, and `grok`. One shared judgement is fanned out, raw replies are stored, and strict-majority agreement is reported when two or more harnesses run. Ties stay disputed. Votes are not ground truth.
 
-Code review remains available as `mode: "review"`. The image-scoring usage this follows is [docs/judges-swarm.md](docs/judges-swarm.md). Claude live execution still depends on detection reporting a non-interactive print mode.
+Code review remains available as `mode: "review"`. The image-scoring usage this follows is [docs/judges-swarm.md](docs/judges-swarm.md). The tool contract is [docs/api.md](docs/api.md).
 
 ## Prerequisites
 
@@ -10,7 +10,7 @@ Code review remains available as `mode: "review"`. The image-scoring usage this 
 2. Enable MCP: project [`.cursor/mcp.json`](.cursor/mcp.json) and/or global `~/.cursor/mcp.json` with `synthet-agent-swarm`
 3. Reload MCP in Cursor (Settings -> Tools & MCP)
 
-MCP tools: `detect_subagents`, `run_subagent`, `run_judge_swarm`, `run_judge_panel` - see [agent-orchestrator/README.md](agent-orchestrator/README.md).
+MCP tools: `swarm_search`, `swarm_run`, `run_judge_panel`. Aliases `detect_subagents`, `run_subagent`, and `run_judge_swarm` keep the previous JSON shape. See [docs/api.md](docs/api.md).
 
 ## Cursor integration map
 
@@ -18,34 +18,32 @@ MCP tools: `detect_subagents`, `run_subagent`, `run_judge_swarm`, `run_judge_pan
 |------|----------|---------|
 | Rules | [`.cursor/rules/`](.cursor/rules/) | Safety defaults and package maintainer notes |
 | Skills | [`.cursor/skills/subagent-review/`](.cursor/skills/subagent-review/) | End-to-end MCP review workflow |
-| Commands | [`.cursor/commands/`](.cursor/commands/) | Slash shortcuts (`/check-subagents`, etc.) |
-| Subagents | [`.cursor/agents/`](.cursor/agents/) | Delegated external CLI reviewers |
+| Commands | [`.cursor/commands/swarm.md`](.cursor/commands/swarm.md) | `/swarm` searches harnesses, then runs |
+| Subagents | [`.cursor/agents/external-swarm.md`](.cursor/agents/external-swarm.md) | One delegated reviewer for every harness |
 
-## Slash commands
+## Slash command
 
 | Command | When to use |
 |---------|-------------|
-| [`/check-subagents`](.cursor/commands/check-subagents.md) | See which CLIs are on PATH before running reviews |
-| [`/run-codex-review`](.cursor/commands/run-codex-review.md) | Delegate a review task to Codex via MCP |
-| [`/run-antigravity-review`](.cursor/commands/run-antigravity-review.md) | Delegate a review task to Antigravity via MCP |
-| [`/run-subagent-review`](.cursor/commands/run-subagent-review.md) | Code review on one agent, or Codex and Antigravity sequentially |
+| [`/swarm`](.cursor/commands/swarm.md) | Search harnesses, then run a review, a judge swarm, or `run_judge_panel` |
 
-Blind multi-judge labelling uses MCP `run_judge_swarm`, not the review slash commands.
+Older command names (`/check-subagents`, `/run-codex-review`, `/run-antigravity-review`, `/run-gemini-review`, `/run-subagent-review`) are stubs that point here.
 
-## Subagents
+## Subagent
 
 | Name | File | Role |
 |------|------|------|
-| `external-codex-review` | [`.cursor/agents/external-codex-review.md`](.cursor/agents/external-codex-review.md) | Codex-only review via MCP |
-| `external-antigravity-review` | [`.cursor/agents/external-antigravity-review.md`](.cursor/agents/external-antigravity-review.md) | Antigravity-only review via MCP |
-| `external-cli-reviewer` | [`.cursor/agents/external-cli-reviewer.md`](.cursor/agents/external-cli-reviewer.md) | Detect -> run -> compare available agents |
+| `external-swarm` | [`.cursor/agents/external-swarm.md`](.cursor/agents/external-swarm.md) | `swarm_search`, then `swarm_run` or `run_judge_panel` |
+
+`external-codex-review`, `external-antigravity-review`, `external-gemini-review`, and `external-cli-reviewer` are stubs that point at `external-swarm`.
 
 ## Default behavior
 
-- **Read-only** - `allowWrites: false`; do not bypass the orchestrator with raw `codex`/`agy` shell unless the user explicitly asks.
-- **Swarm** - `run_judge_swarm` for one shared judgement. Agreement is evidence for a later decision.
-- **Outputs** - `.agent-runs/<timestamp>-<agent>-<slug>/stdout.md` and `.agent-runs/<timestamp>-swarm-<slug>/swarm.json`
-- **Claude** - included when detection reports non-interactive print mode.
+- **Read-only** - writes stay off. ACP permission requests are denied. Do not bypass the orchestrator with raw `codex`, `agy`, `claude`, or `agent` unless the user explicitly asks.
+- **Swarm** - `swarm_run` for one shared judgement. Omit `harnesses` to use every available harness. Agreement is evidence for a later decision.
+- **Model** - optional. The call fails with `model_unsupported` before any run when a selected harness does not advertise `--model`.
+- **Transport** - `auto` uses the one-shot CLI when help shows exec or print mode, otherwise ACP when that command is already on PATH.
+- **Outputs** - `.agent-runs/<timestamp>-<harness>-<slug>/stdout.md` and `.agent-runs/<timestamp>-swarm-<slug>/swarm.json`
 
 ## Authority
 

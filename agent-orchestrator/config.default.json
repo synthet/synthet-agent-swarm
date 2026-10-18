@@ -2,7 +2,7 @@
   "defaultTimeoutMs": 300000,
   "maxTimeoutMs": 900000,
   "allowWritesByDefault": false,
-  "allowedAgents": ["codex", "antigravity", "claude"],
+  "allowedAgents": ["codex", "antigravity", "claude", "agy", "cursor", "gemini", "grok"],
   "workspaceBoundary": ".",
   "redactEnv": true,
   "storeOutputs": true,

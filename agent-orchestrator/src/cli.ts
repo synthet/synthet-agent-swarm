@@ -1,5 +1,5 @@
 import { getWorkspaceRoot, loadConfig } from "./config.js";
-import { detectSubagents } from "./tools/detectSubagents.js";
+import { swarmSearch } from "./tools/swarmSearch.js";
 import {
   runSubagentInputSchema,
   runSubagentTool,
@@ -15,6 +15,8 @@ function printUsage(): void {
   synthet-agent-swarm run --agent <codex|antigravity|claude> --task "<task>" [options]
   synthet-agent-swarm swarm --task "<task>" [options]
 
+detect prints the swarm_search catalog.
+
 Options for run:
   --files <path>[,<path>...]
   --mode <review|implement|explain|test|tie-breaker|judge>
@@ -28,6 +30,8 @@ Options for swarm:
   --timeout-ms <number>
   --dry-run
   --extra-context <text>
+
+The swarm command is the legacy judge wrapper. New callers use the MCP tools swarm_search and swarm_run.
 `);
 }
 
@@ -87,7 +91,7 @@ export async function runCli(argv: string[]): Promise<number> {
   }
 
   if (command === "detect") {
-    const result = await detectSubagents();
+    const result = await swarmSearch();
     console.log(JSON.stringify(result, null, 2));
     return 0;
   }

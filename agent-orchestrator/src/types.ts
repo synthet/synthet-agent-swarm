@@ -1,5 +1,15 @@
 export type SubagentName = "claude" | "antigravity" | "codex";
 
+export type HarnessId =
+  | "codex"
+  | "claude"
+  | "agy"
+  | "cursor"
+  | "gemini"
+  | "grok";
+
+export type SwarmTransport = "cli" | "acp";
+
 export type SubagentMode =
   | "review"
   | "implement"
@@ -9,7 +19,7 @@ export type SubagentMode =
   | "judge";
 
 export interface SubagentRequest {
-  agent: SubagentName;
+  agent: string;
   task: string;
   workspaceRoot: string;
   files?: string[];
@@ -18,10 +28,11 @@ export interface SubagentRequest {
   dryRun?: boolean;
   allowWrites?: boolean;
   extraContext?: string;
+  model?: string;
 }
 
 export interface SubagentResult {
-  agent: SubagentName;
+  agent: string;
   ok: boolean;
   exitCode: number | null;
   stdout: string;
@@ -54,7 +65,7 @@ export interface DetectionResult {
 
 export interface RunSubagentMcpResponse {
   ok: boolean;
-  agent: SubagentName;
+  agent: string;
   exitCode: number | null;
   durationMs: number;
   outputFile?: string;
@@ -68,7 +79,7 @@ export interface OrchestratorConfig {
   defaultTimeoutMs: number;
   maxTimeoutMs: number;
   allowWritesByDefault: boolean;
-  allowedAgents: SubagentName[];
+  allowedAgents: string[];
   workspaceBoundary: string;
   redactEnv: boolean;
   storeOutputs: boolean;

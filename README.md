@@ -1,8 +1,8 @@
 # synthet-agent-swarm
 
-Local MCP server that runs the same read-only judgement on Codex, Antigravity, and Claude, then reports strict-majority agreement. Ties stay disputed. Votes are evidence, not ground truth.
+Local MCP server that runs the same read-only judgement on the harnesses that are installed, then reports strict-majority agreement. Ties stay disputed. Votes are evidence, not ground truth.
 
-Code review is one judgement (`mode: "review"`). Blind labelling is `run_judge_swarm` or `mode: "judge"`. Usage taken from the image-scoring judge panels is in [docs/judges-swarm.md](docs/judges-swarm.md).
+Harnesses: Codex, Claude Code, Antigravity (`agy`), Cursor (`agent`), Gemini CLI, and Grok. Code review is `swarm_run` with `mode: "review"`. Blind labelling is `mode: "judge"` or [docs/judges-swarm.md](docs/judges-swarm.md). The tool contract is [docs/api.md](docs/api.md).
 
 ## Quick start
 
@@ -34,13 +34,13 @@ Full map: **[AGENTS.md](AGENTS.md)**
 |------|----------|
 | Rules | `.cursor/rules/` (`external-cli-subagents.mdc` always on) |
 | Skill | `.cursor/skills/subagent-review/` |
-| Commands | `/check-subagents`, `/run-codex-review`, `/run-antigravity-review`, `/run-subagent-review` |
-| Subagents | `external-codex-review`, `external-antigravity-review`, `external-cli-reviewer` |
+| Commands | `/swarm` |
+| Subagents | `external-swarm` |
 
 1. Build the package (see above).
 2. Enable MCP (see [agent-orchestrator/README.md](agent-orchestrator/README.md)).
 3. Reload MCP in Cursor.
-4. Try `/check-subagents`, then `/run-codex-review` with "dry run" in the prompt.
+4. Try `/swarm` with "dry run" in the prompt.
 5. **Reads only.** `allowWrites=true` is rejected. Do not treat swarm agreement as a human label.
 
 External agents return votes or review notes. Cursor remains the primary editor. Jev adjudication stays in the calling project.

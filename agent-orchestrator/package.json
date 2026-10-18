@@ -1,7 +1,7 @@
 {
   "name": "synthet-agent-swarm",
   "version": "0.1.0",
-  "description": "Local MCP swarm of read-only LLM CLI judges (Codex, Antigravity, Claude)",
+  "description": "Local MCP swarm of read-only CLI judges. Search harnesses, then run them.",
   "type": "module",
   "main": "dist/index.js",
   "bin": {

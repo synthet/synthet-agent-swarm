@@ -1,7 +1,7 @@
 import { readFileSync, existsSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
-import type { OrchestratorConfig, SubagentName } from "./types.js";
+import type { OrchestratorConfig } from "./types.js";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const PACKAGE_ROOT = join(__dirname, "..");
@@ -10,7 +10,7 @@ const DEFAULT_CONFIG: OrchestratorConfig = {
   defaultTimeoutMs: 300000,
   maxTimeoutMs: 900000,
   allowWritesByDefault: false,
-  allowedAgents: ["codex", "antigravity", "claude"],
+  allowedAgents: ["codex", "antigravity", "claude", "agy", "cursor", "gemini", "grok"],
   workspaceBoundary: ".",
   redactEnv: true,
   storeOutputs: true,
@@ -53,11 +53,21 @@ export function clampTimeout(
   return Math.min(Math.max(base, 1000), config.maxTimeoutMs);
 }
 
+/** Map config and request tokens onto harness ids. `antigravity` and `agy` are one harness. */
+export function canonicalHarnessId(agent: string): string {
+  if (agent === "antigravity" || agent === "agy") return "agy";
+  if (agent === "agent") return "cursor";
+  return agent;
+}
+
 export function isAgentAllowed(
-  agent: SubagentName,
+  agent: string,
   config: OrchestratorConfig,
 ): boolean {
-  return config.allowedAgents.includes(agent);
+  const requested = canonicalHarnessId(agent);
+  return config.allowedAgents.some(
+    (allowed) => canonicalHarnessId(allowed) === requested,
+  );
 }
 
 export function getWorkspaceRoot(): string {

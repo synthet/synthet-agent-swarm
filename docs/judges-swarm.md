@@ -46,7 +46,7 @@ npm run build
 node dist/index.js swarm --task "Return JSON only: {\"images\":[{\"id\":\"a\",\"choice\":\"A\"}]}" --files blind/a.jpg --dry-run
 ```
 
-MCP: `detect_subagents`, then `run_judge_swarm` with the same `task` and evidence `files`. `run_judge_panel` is the manifest workflow: it validates item ids and evidence, runs that swarm, and returns votes, a text-only Jev state, and an optional comparison with human labels. It does not call Jev, render images, or mutate files. `run_subagent` with `mode: "judge"` is one judge. `mode: "review"` remains a code review.
+MCP: `swarm_search`, then `swarm_run` with `mode: "judge"` and the evidence `files`. Omit `harnesses` to use every available harness, or pass ids such as `codex` and `agy`. Optional `model` is sent only when every selected harness advertises `--model`. `run_judge_panel` is the manifest workflow: it validates item ids and evidence, runs that swarm, and returns votes, a text-only Jev state, and an optional comparison with human labels. It does not call Jev, render images, or mutate files. `mode: "review"` remains a code review.
 
 Judge mode omits git status and diffs, allows image evidence (png, jpg, jpeg, gif, webp) inside the workspace, and still refuses secrets and other binaries. Codex gets `--image`. Claude gets `--tools Read` and `--add-dir`. Antigravity gets `--add-dir` and no permission-skip flag.
 
@@ -54,4 +54,4 @@ Parsed votes come from the last JSON object in each reply. An `images` array is 
 
 This server is a standalone MCP. It does not call the ai-quotas dashboard or any other quota service before starting a judge.
 
-These judges are one-shot CLIs. An external note on Agent Client Protocol support, and why this server does not use it, is in [acp-harness-matrix.md](acp-harness-matrix.md).
+Default transport is `auto`: the one-shot CLI when help shows exec or print mode, otherwise ACP when that command is already on PATH. ACP permission requests are denied. The harness matrix is [acp-harness-matrix.md](acp-harness-matrix.md). The tool contract is [api.md](api.md).

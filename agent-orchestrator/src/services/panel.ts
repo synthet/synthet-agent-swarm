@@ -85,6 +85,9 @@ export function panelSwarmInput(input: {
   task: string;
   items: PanelItem[];
   agents?: Array<"codex" | "antigravity" | "claude">;
+  harnesses?: string[];
+  model?: string;
+  transport?: "auto" | "cli" | "acp";
   timeoutMs?: number;
   dryRun?: boolean;
   blind?: boolean;
@@ -92,19 +95,27 @@ export function panelSwarmInput(input: {
 }): {
   task: string;
   files: string[];
-  agents?: Array<"codex" | "antigravity" | "claude">;
+  harnesses: string[];
+  model?: string;
+  transport?: "auto" | "cli" | "acp";
   timeoutMs?: number;
   dryRun: boolean;
   extraContext?: string;
 } {
   const blind = input.blind !== false;
+  const harnesses =
+    input.harnesses ??
+    input.agents?.map((agent) => (agent === "antigravity" ? "agy" : agent)) ??
+    ["codex", "agy", "claude"];
   return {
     task: panelTask(
       input.task,
       input.items.map((item) => item.id),
     ),
     files: panelEvidenceFiles(input.items),
-    agents: input.agents,
+    harnesses,
+    model: input.model,
+    transport: input.transport,
     timeoutMs: input.timeoutMs,
     dryRun: input.dryRun ?? false,
     extraContext: blind ? undefined : input.extraContext,
