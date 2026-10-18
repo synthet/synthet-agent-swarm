@@ -1,17 +1,7 @@
 import { z } from "zod";
-import { getWorkspaceRoot, loadConfig } from "../config.js";
-import {
-  validateAndResolveFiles,
-  validateEvidenceFiles,
-} from "../services/pathSafety.js";
-import {
-  relativeOutputPath,
-  storeRunResult,
-} from "../services/resultStore.js";
 import { redactSecrets } from "../services/redaction.js";
-import { runSubagentForRequest } from "../runners/index.js";
-import { validateSubagentRequest } from "../runners/base.js";
-import type { RunSubagentMcpResponse, SubagentRequest } from "../types.js";
+import type { RunSubagentMcpResponse } from "../types.js";
+import { executeSwarm } from "./executeSwarm.js";
 
 export const runSubagentInputSchema = z.object({
   agent: z.enum(["codex", "antigravity", "claude"]),
@@ -56,9 +46,6 @@ function summarizeOutput(stdout: string): string {
 export async function runSubagentTool(
   input: z.infer<typeof runSubagentInputSchema>,
 ): Promise<RunSubagentMcpResponse> {
-  const workspaceRoot = getWorkspaceRoot();
-  const config = loadConfig(workspaceRoot);
-
   if (input.allowWrites) {
     return {
       ok: false,
@@ -70,50 +57,38 @@ export async function runSubagentTool(
     };
   }
 
-  if ((input.mode ?? "review") === "judge") {
-    validateEvidenceFiles(workspaceRoot, input.files);
-  } else {
-    validateAndResolveFiles(workspaceRoot, input.files);
+  const harness = input.agent === "antigravity" ? "agy" : input.agent;
+  const result = await executeSwarm({
+    task: input.task,
+    files: input.files,
+    harnesses: [harness],
+    mode: input.mode,
+    timeoutMs: input.timeoutMs,
+    dryRun: input.dryRun,
+    extraContext: input.extraContext,
+  });
+  const row = result.harnesses[0];
+  if (!row) {
+    return {
+      ok: false,
+      agent: input.agent,
+      exitCode: null,
+      durationMs: 0,
+      summary: result.error?.message ?? "The harness did not run.",
+      error: result.error?.message,
+    };
   }
-
-  const request: SubagentRequest = validateSubagentRequest(
-    {
-      ...input,
-      workspaceRoot,
-    },
-    config,
-  );
-
-  const result = await runSubagentForRequest(request, config);
-
-  const stored = storeRunResult(
-    workspaceRoot,
-    request,
-    result,
-    config,
-    result.prompt,
-  );
-
-  let outputFile: string | undefined;
-  if (stored) {
-    outputFile = relativeOutputPath(workspaceRoot, stored.stdoutFile);
-    result.outputFile = stored.stdoutFile;
-    result.outputDir = stored.runDir;
-  }
-
   return {
-    ok: result.ok,
-    agent: result.agent,
-    exitCode: result.exitCode,
-    durationMs: result.durationMs,
-    outputFile,
-    outputDir: result.outputDir
-      ? relativeOutputPath(workspaceRoot, result.outputDir)
-      : undefined,
-    summary: result.error
-      ? result.error
-      : summarizeOutput(redactSecrets(result.stdout)),
-    error: result.error,
-    commandPreview: result.commandPreview,
+    ok: row.ok,
+    agent: input.agent,
+    exitCode: row.exitCode,
+    durationMs: row.durationMs,
+    outputFile: row.outputFile,
+    outputDir: row.outputDir,
+    summary: row.error
+      ? row.error.message
+      : summarizeOutput(redactSecrets(row.stdout)),
+    error: row.error?.message,
+    commandPreview: row.commandPreview,
   };
 }

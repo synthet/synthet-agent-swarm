@@ -1,44 +1,49 @@
-import { loadConfig, getWorkspaceRoot } from "../config.js";
-import {
-  detectAgent,
-} from "../runners/detection.js";
-import type { DetectionResult, SubagentName } from "../types.js";
-
-const AGENTS: SubagentName[] = ["codex", "antigravity", "claude"];
-
-let cache: { result: DetectionResult; expiresAt: number } | null = null;
-const CACHE_TTL_MS = 60_000;
+import { getWorkspaceRoot, loadConfig } from "../config.js";
+import { clearHarnessCache, observeHarnesses } from "../harness/observe.js";
+import type { HarnessObservation } from "../harness/registry.js";
+import type { AgentDetectionInfo, DetectionResult } from "../types.js";
 
 export function clearDetectionCache(): void {
-  cache = null;
+  clearHarnessCache();
+}
+
+function legacyInfo(
+  observation: HarnessObservation | undefined,
+  command: string,
+): AgentDetectionInfo {
+  if (!observation || !observation.binaryFound) {
+    return {
+      available: false,
+      command: observation?.spec.cliArgv?.[0] ?? command,
+      mode: null,
+      version: null,
+      notes: observation?.notes.length ? observation.notes : ["not found on PATH"],
+      helpSnippet: observation?.cliHelp,
+    };
+  }
+  return {
+    available: true,
+    command: observation.spec.cliArgv?.[0] ?? command,
+    mode: observation.cliMode,
+    version: observation.version,
+    notes: observation.notes,
+    helpSnippet: observation.cliHelp,
+    supportsCd: observation.supportsCd,
+    promptFlag: observation.promptFlag,
+  };
 }
 
 export async function detectSubagents(): Promise<DetectionResult> {
-  const now = Date.now();
-  if (cache && cache.expiresAt > now) {
-    return cache.result;
-  }
-
   const workspaceRoot = getWorkspaceRoot();
   const config = loadConfig(workspaceRoot);
-
-  const agents = {} as DetectionResult["agents"];
-
-  await Promise.all(
-    AGENTS.map(async (name) => {
-      agents[name] = await detectAgent(
-        name,
-        config.detectionTimeoutMs,
-        workspaceRoot,
-      );
-    }),
-  );
-
-  const result: DetectionResult = {
-    agents,
+  const rows = await observeHarnesses(workspaceRoot, config.detectionTimeoutMs);
+  const byId = new Map(rows.map((row) => [row.spec.id, row]));
+  return {
+    agents: {
+      codex: legacyInfo(byId.get("codex"), "codex"),
+      antigravity: legacyInfo(byId.get("agy"), "agy"),
+      claude: legacyInfo(byId.get("claude"), "claude"),
+    },
     detectedAt: new Date().toISOString(),
   };
-
-  cache = { result, expiresAt: now + CACHE_TTL_MS };
-  return result;
 }

@@ -1,21 +1,12 @@
 import { z } from "zod";
-import { getWorkspaceRoot, loadConfig } from "../config.js";
-import { validateSubagentRequest } from "../runners/base.js";
-import { runSubagentForRequest } from "../runners/index.js";
-import { validateEvidenceFiles, PathSafetyError } from "../services/pathSafety.js";
-import {
-  relativeOutputPath,
-  storeRunResult,
-  storeSwarmSummary,
-} from "../services/resultStore.js";
-import { redactSecrets } from "../services/redaction.js";
 import { agreeVotes, emptyAgreement } from "../services/votes.js";
 import type { SwarmAgreement } from "../services/votes.js";
-import type {
-  RunSubagentMcpResponse,
-  SubagentName,
-  SubagentResult,
-} from "../types.js";
+import type { RunSubagentMcpResponse } from "../types.js";
+import {
+  executeSwarm,
+  legacyAgentName,
+  type SwarmRunResponse,
+} from "./executeSwarm.js";
 
 export const runJudgeSwarmInputSchema = z.object({
   task: z.string().min(1).max(8000),
@@ -40,122 +31,51 @@ export interface JudgeSwarmResponse {
   error?: string;
 }
 
-function uniqueAgents(agents: SubagentName[]): SubagentName[] {
-  return [...new Set(agents)];
-}
-
-function brief(result: SubagentResult): string {
-  if (result.error) return result.error;
-  const redacted = redactSecrets(result.stdout).trim();
-  const line = redacted.split("\n").find((item) => item.trim().length > 0) ?? "";
-  if (!line) return "No stdout output.";
-  return line.length > 240 ? `${line.slice(0, 240)}...` : line;
-}
-
-function failed(dryRun: boolean, error: string): JudgeSwarmResponse {
+function toLegacySwarm(result: SwarmRunResponse): JudgeSwarmResponse {
+  const votes = result.harnesses.filter((row) => row.transport !== null);
+  const agreement = result.dryRun
+    ? emptyAgreement("Dry run previews commands only. No votes were collected.")
+    : agreeVotes(
+        votes.map((row) => ({
+          agent: legacyAgentName(row.id),
+          text: row.stdout,
+        })),
+      );
   return {
-    ok: false,
-    dryRun,
-    judges: [],
-    agreement: emptyAgreement("The swarm did not run."),
-    note: "Agent-panel labels are not ground truth.",
-    error,
+    ok: result.ok,
+    dryRun: result.dryRun,
+    outputDir: result.outputDir,
+    judges: result.harnesses.map((row) => ({
+      ok: row.ok,
+      agent: legacyAgentName(row.id),
+      exitCode: row.exitCode,
+      durationMs: row.durationMs,
+      outputFile: row.outputFile,
+      outputDir: row.outputDir,
+      summary: row.summary,
+      error: row.error?.message,
+      commandPreview: row.commandPreview,
+    })),
+    agreement,
+    note: agreement.note,
+    error: result.error?.message,
   };
 }
 
 export async function runJudgeSwarmTool(
   input: z.infer<typeof runJudgeSwarmInputSchema>,
 ): Promise<JudgeSwarmResponse> {
-  const workspaceRoot = getWorkspaceRoot();
-  const config = loadConfig(workspaceRoot);
-  const dryRun = input.dryRun ?? false;
-
-  try {
-    validateEvidenceFiles(workspaceRoot, input.files);
-  } catch (err) {
-    const message = err instanceof PathSafetyError ? err.message : String(err);
-    return failed(dryRun, message);
-  }
-
-  const agents = uniqueAgents(input.agents ?? config.allowedAgents);
-  let requests;
-  try {
-    requests = agents.map((agent) =>
-      validateSubagentRequest(
-        {
-          agent,
-          task: input.task,
-          workspaceRoot,
-          files: input.files,
-          mode: "judge",
-          timeoutMs: input.timeoutMs,
-          allowWrites: false,
-          dryRun,
-          extraContext: input.extraContext,
-        },
-        config,
-      ),
-    );
-  } catch (err) {
-    return failed(dryRun, err instanceof Error ? err.message : String(err));
-  }
-
-  const runs = await Promise.all(
-    requests.map(async (request) => {
-      const result = await runSubagentForRequest(request, config);
-      const stored = storeRunResult(
-        workspaceRoot,
-        request,
-        result,
-        config,
-        result.prompt,
-      );
-      const response: RunSubagentMcpResponse = {
-        ok: result.ok,
-        agent: result.agent,
-        exitCode: result.exitCode,
-        durationMs: result.durationMs,
-        outputFile: stored
-          ? relativeOutputPath(workspaceRoot, stored.stdoutFile)
-          : undefined,
-        outputDir: stored
-          ? relativeOutputPath(workspaceRoot, stored.runDir)
-          : undefined,
-        summary: brief(result),
-        error: result.error,
-        commandPreview: result.commandPreview,
-      };
-      return { result, response };
-    }),
+  const harnesses = (input.agents ?? ["codex", "antigravity", "claude"]).map((agent) =>
+    agent === "antigravity" ? "agy" : agent,
   );
-
-  const agreement = dryRun
-    ? emptyAgreement("Dry run previews commands only. No votes were collected.")
-    : agreeVotes(
-        runs.map((run) => ({
-          agent: run.result.agent,
-          text: run.result.stdout,
-        })),
-      );
-
-  const judges = runs.map((run) => run.response);
-  const stored = storeSwarmSummary(
-    workspaceRoot,
-    input.task,
-    { task: input.task, agents, dryRun, judges, agreement },
-    config,
-  );
-
-  const ok = dryRun
-    ? runs.every((run) => run.response.ok)
-    : runs.some((run) => run.response.ok);
-
-  return {
-    ok,
-    dryRun,
-    outputDir: stored ? relativeOutputPath(workspaceRoot, stored) : undefined,
-    judges,
-    agreement,
-    note: agreement.note,
-  };
+  const result = await executeSwarm({
+    task: input.task,
+    files: input.files,
+    harnesses,
+    mode: "judge",
+    timeoutMs: input.timeoutMs,
+    dryRun: input.dryRun,
+    extraContext: input.extraContext,
+  });
+  return toLegacySwarm(result);
 }

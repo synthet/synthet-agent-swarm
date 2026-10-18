@@ -14,6 +14,7 @@ import type {
   SubagentRequest,
   SubagentResult,
 } from "../types.js";
+import { applyModel } from "../harness/registry.js";
 import { createErrorResult, finalizeResult } from "./base.js";
 import { detectClaude } from "./detection.js";
 
@@ -36,12 +37,14 @@ export function clearClaudeDetectionCache(): void {
 export function buildClaudeArgv(
   prompt: string,
   addDirs: string[] = [],
+  model?: string,
 ): string[] {
   const argv = ["claude", "-p", prompt];
-  if (addDirs.length === 0) return argv;
-  argv.push("--tools", "Read");
-  for (const dir of addDirs) argv.push("--add-dir", dir);
-  return argv;
+  if (addDirs.length > 0) {
+    argv.push("--tools", "Read");
+    for (const dir of addDirs) argv.push("--add-dir", dir);
+  }
+  return applyModel(argv, "claude", model);
 }
 
 export async function runClaude(
@@ -72,6 +75,7 @@ export async function runClaude(
     request.mode === "judge"
       ? evidenceDirectories(request.workspaceRoot, request.files)
       : [],
+    request.model,
   );
   const commandPreview = formatCommandPreview(argv);
 

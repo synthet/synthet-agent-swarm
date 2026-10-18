@@ -1,7 +1,7 @@
 ---
 type: Report
 title: ACP harness matrix
-description: Project reading of an external report on Agent Client Protocol support in Codex, Cursor, Grok, Claude Code, and Antigravity. This swarm still launches one-shot CLIs.
+description: Which harnesses synthet-agent-swarm launches over the one-shot CLI or ACP, next to the archived vendor report.
 resource: docs/acp-harness-matrix.md
 tags: [acp, codex, cursor, grok, claude, antigravity]
 timestamp: 2026-10-18T00:00:00Z
@@ -12,17 +12,20 @@ okf_version: 0.1
 
 External research, archived on 2026-10-18 from `D:\Downloads\deep-research-report.md`. The unchanged source is [raw/deep-research-report-acp.md](raw/deep-research-report-acp.md). This page says what that report means for synthet-agent-swarm. It does not re-verify every vendor claim.
 
-The Agent Client Protocol (ACP) is a JSON-RPC session between an editor and a coding agent. The report compares five harnesses. This server does not speak ACP. It still spawns one judge process per vote. See [judges-swarm.md](judges-swarm.md).
+The Agent Client Protocol (ACP) is a JSON-RPC session between an editor and a coding agent. The report compares five harnesses. This server uses the one-shot CLI when help shows exec or print mode, and ACP otherwise when that command is already on PATH. It does not download adapters. An ACP `session/request_permission` is answered with a deny. See [judges-swarm.md](judges-swarm.md) and [api.md](api.md).
 
 ## What this repo runs
 
-| Judge | Launch used here |
-|---|---|
-| Codex | `codex exec` in a read-only sandbox. Live runs require detection to report `exec`. |
-| Antigravity | `agy -p`, `--prompt`, or `--print`, plus `--add-dir` for judge evidence. No permission-skip flag. |
-| Claude | `claude -p`. Judge mode adds `--tools Read` and `--add-dir`. Live runs require detection to report print mode. |
+| Harness | CLI | ACP, only if the command is already on PATH |
+|---|---|---|
+| `codex` | `codex exec` in a read-only sandbox | `codex-acp` |
+| `claude` | `claude -p`. Judge mode adds `--tools Read` and `--add-dir` | `claude-code-acp` |
+| `agy` | `agy -p`, `--prompt`, or `--print`, plus `--add-dir` for judge evidence | only when `agy` help shows an ACP mode |
+| `cursor` | `agent` print mode only when help shows `-p`, `--print`, or `--prompt` | `agent acp` |
+| `gemini` | `gemini` print mode when the binary exists | only when help shows an ACP mode |
+| `grok` | none in this slice | `grok agent stdio` |
 
-ACP sessions in the report can edit files and run shell commands. That is a different contract from `allowWrites: false`.
+A failed ACP handshake is `acp_protocol` for that harness. The other harnesses in the same run still finish.
 
 ## What the report claims
 

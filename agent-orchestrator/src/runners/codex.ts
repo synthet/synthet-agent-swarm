@@ -14,6 +14,7 @@ import type {
   SubagentRequest,
   SubagentResult,
 } from "../types.js";
+import { applyModel } from "../harness/registry.js";
 import { createErrorResult, finalizeResult } from "./base.js";
 import { detectCodex } from "./detection.js";
 
@@ -39,6 +40,7 @@ export function buildCodexArgv(
   detection: AgentDetectionInfo,
   config: OrchestratorConfig,
   imagePaths: string[] = [],
+  model?: string,
 ): string[] {
   const argv = [
     "codex",
@@ -62,7 +64,7 @@ export function buildCodexArgv(
   }
 
   argv.push(prompt);
-  return argv;
+  return applyModel(argv, "codex", model);
 }
 
 export async function runCodex(
@@ -96,6 +98,7 @@ export async function runCodex(
     request.mode === "judge"
       ? evidenceImagePaths(request.workspaceRoot, request.files)
       : [],
+    request.model,
   );
   const commandPreview = formatCommandPreview(argv);
 

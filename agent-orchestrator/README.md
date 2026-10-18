@@ -45,10 +45,11 @@ After `npm run build`, configure Cursor MCP (project `.cursor/mcp.json`):
 
 Reload MCP in Cursor, then use tools:
 
-- `detect_subagents` — no arguments; returns JSON availability
-- `run_subagent` — one judge. `mode` `review` (default) or `judge`. `allowWrites` must stay `false`
-- `run_judge_swarm` — `{ "task": "...", "files": ["blind/a.jpg"], "agents": ["codex", "antigravity"], "dryRun": true }`
+- `swarm_search` — optional `{ "query": "cursor" }`. Returns short harness rows
+- `swarm_run` — `{ "task": "...", "files": ["blind/a.jpg"], "harnesses": ["codex", "agy"], "dryRun": true }`
 - `run_judge_panel` — `{ "task": "...", "items": [{ "id": "a", "files": ["blind/a.jpg"] }], "dryRun": true }`
+
+`detect_subagents`, `run_subagent`, and `run_judge_swarm` remain as wrappers that return the previous JSON shape.
 
 **Cursor workflow:** skill [`.cursor/skills/subagent-review`](../.cursor/skills/subagent-review/SKILL.md), slash commands in [`.cursor/commands/`](../.cursor/commands/), index [AGENTS.md](../AGENTS.md).
 
@@ -63,9 +64,11 @@ npm start
 
 | Tool | Description |
 |------|-------------|
-| `detect_subagents` | Probes `codex`, `antigravity`, `claude` with timeouts; never fails entirely if one is missing |
-| `run_subagent` | Builds bounded prompt (git status/diff, file excerpts), runs CLI, saves under `.agent-runs/` |
+| `swarm_search` | Lists `codex`, `claude`, `agy`, `cursor`, `gemini`, and `grok` with the transports detection found |
+| `swarm_run` | Runs one read-only task. Omit `harnesses` for every available harness. Optional `model` and `transport` |
 | `run_judge_panel` | Manifest workflow: blind swarm, votes, text-only Jev state, optional human comparison. Does not call Jev or mutate files |
+
+`run_subagent` is the compatibility wrapper. New callers use `swarm_run` in [docs/api.md](../docs/api.md).
 
 ### `run_subagent` parameters
 
@@ -118,12 +121,11 @@ Each run creates:
 
 ## Known limitations (v0.1)
 
-- Claude runs only when detection reports non-interactive print mode
-- `allowWrites=true` and implement mode not enabled
-- `run_judge_swarm` agrees string fields in the last JSON object. It does not render images, call Jev, or grade domain rubrics
-- Cursor and Gemini judges are not wired
-- Code-review panels still compare separate `run_subagent` replies by hand
-- CLI flags vary by installed version; see `notes` in `detect_subagents` output
+- A harness runs its one-shot CLI only when help shows exec or print mode. Cursor and Grok otherwise use ACP when that command is already on PATH
+- `allowWrites=true` is rejected. ACP permission requests are denied
+- Agreement uses string fields in the last JSON object. The server does not render images, call Jev, or grade domain rubrics
+- A requested `model` fails the whole call when any selected harness does not advertise `--model`
+- CLI flags vary by installed version; see `notes` from `swarm_search`
 
 ## Tests
 

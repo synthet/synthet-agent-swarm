@@ -12,12 +12,14 @@ import {
   relativeOutputPath,
   storePanelSummary,
 } from "../services/resultStore.js";
-import { emptyAgreement, type SwarmAgreement } from "../services/votes.js";
+import { agreeVotes, emptyAgreement, type SwarmAgreement } from "../services/votes.js";
 import type { RunSubagentMcpResponse } from "../types.js";
 import {
-  runJudgeSwarmTool,
-  type JudgeSwarmResponse,
-} from "./runJudgeSwarm.js";
+  executeSwarm,
+  legacyAgentName,
+  type SwarmRunResponse,
+} from "./executeSwarm.js";
+import type { JudgeSwarmResponse } from "./runJudgeSwarm.js";
 
 const itemId = z
   .string()
@@ -40,6 +42,9 @@ export const runJudgePanelInputSchema = z
       .min(1)
       .max(3)
       .optional(),
+    harnesses: z.array(z.string().min(1).max(40)).max(12).optional(),
+    model: z.string().min(1).max(200).optional(),
+    transport: z.enum(["auto", "cli", "acp"]).optional(),
     timeoutMs: z.number().int().positive().optional(),
     dryRun: z.boolean().optional().default(false),
     blind: z.boolean().optional().default(true),
@@ -163,6 +168,37 @@ export function assembleJudgePanel(args: {
   };
 }
 
+function toJudgeSwarm(result: SwarmRunResponse): JudgeSwarmResponse {
+  const votes = result.harnesses.filter((row) => row.transport !== null);
+  const agreement = result.dryRun
+    ? emptyAgreement("Dry run collects no votes.")
+    : agreeVotes(
+        votes.map((row) => ({
+          agent: legacyAgentName(row.id),
+          text: row.stdout,
+        })),
+      );
+  return {
+    ok: result.ok,
+    dryRun: result.dryRun,
+    outputDir: result.outputDir,
+    judges: result.harnesses.map((row) => ({
+      ok: row.ok,
+      agent: legacyAgentName(row.id),
+      exitCode: row.exitCode,
+      durationMs: row.durationMs,
+      outputFile: row.outputFile,
+      outputDir: row.outputDir,
+      summary: row.summary,
+      error: row.error?.message,
+      commandPreview: row.commandPreview,
+    })),
+    agreement,
+    note: agreement.note,
+    error: result.error?.message,
+  };
+}
+
 function failedPanel(
   build: PanelBuild,
   dryRun: boolean,
@@ -197,7 +233,7 @@ export async function runJudgePanelTool(
     );
   }
 
-  const swarm = await runJudgeSwarmTool(swarmInput);
+  const swarm = toJudgeSwarm(await executeSwarm({ ...swarmInput, mode: "judge" }));
   const assembled = assembleJudgePanel({
     build,
     swarm,

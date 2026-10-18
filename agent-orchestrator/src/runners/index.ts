@@ -14,5 +14,18 @@ export async function runSubagentForRequest(
       return runAntigravity(request, config);
     case "claude":
       return runClaude(request, config);
+    default:
+      return {
+        agent: request.agent,
+        ok: false,
+        exitCode: null,
+        stdout: "",
+        stderr: "",
+        startedAt: new Date().toISOString(),
+        finishedAt: new Date().toISOString(),
+        durationMs: 0,
+        commandPreview: "",
+        error: `No one-shot CLI runner for ${request.agent}`,
+      };
   }
 }

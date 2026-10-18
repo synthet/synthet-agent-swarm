@@ -2,7 +2,6 @@ import { z } from "zod";
 import { clampTimeout, isAgentAllowed } from "../config.js";
 import type {
   OrchestratorConfig,
-  SubagentName,
   SubagentRequest,
   SubagentResult,
 } from "../types.js";
@@ -19,6 +18,7 @@ export const subagentRequestSchema = z.object({
   dryRun: z.boolean().optional(),
   allowWrites: z.boolean().optional(),
   extraContext: z.string().max(4000).optional(),
+  model: z.string().min(1).max(200).optional(),
 });
 
 export function validateSubagentRequest(
@@ -43,7 +43,7 @@ export function validateSubagentRequest(
 }
 
 export function createErrorResult(
-  agent: SubagentName,
+  agent: string,
   error: string,
   commandPreview = "",
   startedAt = new Date().toISOString(),
@@ -64,7 +64,7 @@ export function createErrorResult(
 }
 
 export function finalizeResult(
-  agent: SubagentName,
+  agent: string,
   startedAt: string,
   commandPreview: string,
   run: {

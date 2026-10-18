@@ -3,7 +3,6 @@ import { join } from "node:path";
 import { redactObject, redactSecrets } from "./redaction.js";
 import type {
   OrchestratorConfig,
-  SubagentName,
   SubagentRequest,
   SubagentResult,
 } from "../types.js";
@@ -31,7 +30,7 @@ function timestampSlug(): string {
   ].join("");
 }
 
-export function buildRunDirName(agent: SubagentName, task: string): string {
+export function buildRunDirName(agent: string, task: string): string {
   return `${timestampSlug()}-${agent}-${slugify(task)}`;
 }
 
