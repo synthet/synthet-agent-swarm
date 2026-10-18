@@ -1,0 +1,12 @@
+node_modules/
+dist/
+*.log
+.DS_Store
+
+# External sub-agent run outputs
+.agent-runs/*
+!.agent-runs/.gitignore
+/.agent/local/
+/.cursor/mcp.json
+/.claude/settings.local.json
+/.agents/mcp_config.json

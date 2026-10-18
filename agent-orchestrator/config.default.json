@@ -1,0 +1,14 @@
+{
+  "defaultTimeoutMs": 300000,
+  "maxTimeoutMs": 900000,
+  "allowWritesByDefault": false,
+  "allowedAgents": ["codex", "antigravity", "claude"],
+  "workspaceBoundary": ".",
+  "redactEnv": true,
+  "storeOutputs": true,
+  "storePrompts": false,
+  "detectionTimeoutMs": 10000,
+  "codex": {
+    "jsonOutput": false
+  }
+}

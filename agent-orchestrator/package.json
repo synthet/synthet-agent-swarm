@@ -1,0 +1,30 @@
+{
+  "name": "synthet-agent-swarm",
+  "version": "0.1.0",
+  "description": "Local MCP swarm of read-only LLM CLI judges (Codex, Antigravity, Claude)",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "synthet-agent-swarm": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "start": "node dist/index.js",
+    "detect": "node dist/index.js detect",
+    "run": "node dist/index.js run",
+    "swarm": "node dist/index.js swarm"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.0",
+    "zod": "^3.24.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.0",
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0"
+  }
+}

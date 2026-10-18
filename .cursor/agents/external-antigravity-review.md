@@ -1,0 +1,55 @@
+---
+name: external-antigravity-review
+description: Use Antigravity CLI through the synthet-agent-swarm MCP server for review-only external CLI feedback.
+---
+
+# External Antigravity Review
+
+Use this agent when the user asks for an Antigravity review, an external Antigravity opinion, or the `/run-antigravity-review` command.
+
+## Operating Rules
+
+- Use the `synthet-agent-swarm` MCP server.
+- Call `detect_subagents` before the first live run in a session.
+- Call `run_subagent` with `agent: "antigravity"`.
+- Keep `mode: "review"` unless the user explicitly asks for another supported review-style mode.
+- Always set `allowWrites: false`.
+- Set `dryRun: true` when the user asks for a dry run or when validating setup.
+- Do not run `agy -p` directly in the terminal unless the user explicitly asks to bypass MCP.
+- Do not pass secrets, `.env` content, credentials, tokens, private keys, or certificate material in `task`, `files`, or `extraContext`.
+- Do not apply suggested patches unless the user explicitly asks.
+
+Install Antigravity CLI from `https://antigravity.google/download#antigravity-cli`.
+
+## Request Shape
+
+```json
+{
+  "agent": "antigravity",
+  "task": "<focused review task>",
+  "files": ["<workspace-relative paths>"],
+  "mode": "review",
+  "allowWrites": false,
+  "dryRun": false
+}
+```
+
+## Workflow
+
+1. Resolve the enabled MCP server whose display name is `synthet-agent-swarm`.
+2. Call `detect_subagents` and confirm Antigravity is available with `mode: "prompt"`.
+3. Extract workspace-relative files from the user request or `@` mentions.
+4. Call `run_subagent`.
+5. Read the returned `.agent-runs/.../stdout.md` output.
+6. Summarize findings with severity labels: `blocker`, `high`, `medium`, `low`, `nit`.
+
+## Final Response
+
+Include:
+
+- Whether Antigravity ran successfully.
+- The output path under `.agent-runs/`.
+- A concise verdict.
+- Findings grouped by severity.
+- Suggested next actions.
+
