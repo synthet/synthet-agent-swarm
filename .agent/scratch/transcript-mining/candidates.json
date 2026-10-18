@@ -1,0 +1,74 @@
+[
+  {
+    "text": "Python app/scripts importing modules should run in WSL with ~/.venvs/tf unless documented otherwise.",
+    "category": "working_rule",
+    "confidence": "high",
+    "source_hint": "2fe8db40",
+    "transcript_uuid": "2fe8db40-b3d1-4941-9cb9-2135e6aea090",
+    "relevance": 0.9,
+    "task_summary": "@image-scoring-gallery/.cursor/mcp.json @image-scoring-backend/.cursor/mcp.json align naming of mcp tools (gallery vs backend) remove el/py, name tools semantically but short"
+  },
+  {
+    "text": "Python app/scripts importing modules should run in WSL with ~/.venvs/tf unless documented otherwise.",
+    "category": "working_rule",
+    "confidence": "high",
+    "source_hint": "60686407",
+    "transcript_uuid": "60686407-1b7c-4e3d-b08e-08f3532948c7",
+    "relevance": 0.9,
+    "task_summary": "@image-scoring-backend/.cursor/mcp.json does any of the mcp tools allow remote code executeion? if no, add it and setup keys (secrates) in the mcp.json"
+  },
+  {
+    "text": "Session outcome pattern: The background cleanup finished successfully: **`driftara-video-backend`** references were corrected back to **`image-scoring-backend`**, and the gallery MCP debug agent files were removed.",
+    "category": "successful_pattern",
+    "confidence": "low",
+    "source_hint": "b54bc7ee",
+    "transcript_uuid": "b54bc7ee-7bcd-4cbf-b1d7-c67f68943a85",
+    "relevance": 0.8300000000000001,
+    "task_summary": "add .cursor/, .claude/, agents.md, calude.md, etc setup similar to D:\\Projects\\image-scoring-gallery"
+  },
+  {
+    "text": "Session outcome pattern: ## Code review: gallery sub-stack support",
+    "category": "successful_pattern",
+    "confidence": "low",
+    "source_hint": "65abf8da",
+    "transcript_uuid": "65abf8da-b5b6-4ea6-a9ee-9654d71ff093",
+    "relevance": 0.7100000000000001,
+    "task_summary": "code review codex://threads/019e7eb4-902d-7d21-b984-a644eff09e11"
+  },
+  {
+    "text": "Session outcome pattern: All Cursor MCP guidance from the plan is in place. Here is what was added:",
+    "category": "successful_pattern",
+    "confidence": "low",
+    "source_hint": "0d02678e",
+    "transcript_uuid": "0d02678e-f2c8-403c-9c01-a1b80272de2a",
+    "relevance": 0.66,
+    "task_summary": "# Cursor Prompt: Add External CLI Sub-Agents to Cursor Workflow\n\nYou are working in this repository as a senior platform / agentic-tools engineer.\n\n## Goal\n\nIntroduce a safe, extensible mechanism to run external CLI coding agents as **sub-a\u2026"
+  },
+  {
+    "text": "Doc changes should go through OKF wiki ingest and append docs/log.md.",
+    "category": "successful_pattern",
+    "confidence": "medium",
+    "source_hint": "08c1fcc6",
+    "transcript_uuid": "08c1fcc6-5476-43ef-873f-b3a968e7fe43",
+    "relevance": 0.64,
+    "task_summary": "@d:\\Projects\\subagent-orchestrator onboard this tool, add skills/slash commands/rules/subagents if applicable to iamges-scoring-* projects"
+  },
+  {
+    "text": "Session outcome pattern: The **mcp-server** setup finished successfully: dependencies installed, TypeScript built, and the live-server smoke test passed (`video-gallery-live` on a dynamic port, `/mcp-status` OK).",
+    "category": "successful_pattern",
+    "confidence": "low",
+    "source_hint": "f970f41c",
+    "transcript_uuid": "f970f41c-5325-46a4-8502-7542a6156ab0",
+    "relevance": 0.64,
+    "task_summary": "@.cursor/mcp.json make video-gallery own MCPs"
+  },
+  {
+    "text": "Session outcome pattern: That background command was stopped before it finished. It had started `node dist/index.js` (the MCP server), which blocks the terminal, so the combined detect script never completed.",
+    "category": "successful_pattern",
+    "confidence": "low",
+    "source_hint": "fb2dfce4",
+    "transcript_uuid": "fb2dfce4-a0c6-442e-9ca1-3d42b657c020",
+    "relevance": 0.59,
+    "task_summary": "/image-scoring-backend/check-subagents \n\nRunning sub-agent detection via the subagent-orchestrator MCP server.\n\n{\n  \"agents\": {\n    \"gemini\": {\n      \"available\": false,\n      \"command\": \"gemini\",\n      \"mode\": null,\n      \"version\": null,\n\u2026"
+  }
+]

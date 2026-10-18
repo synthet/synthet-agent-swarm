@@ -1,0 +1,9 @@
+{
+  "agent": "codex",
+  "task": "Review README",
+  "workspaceRoot": "D:\\Projects\\subagent-orchestrator\\agent-orchestrator",
+  "dryRun": true,
+  "allowWrites": false,
+  "mode": "review",
+  "timeoutMs": 300000
+}

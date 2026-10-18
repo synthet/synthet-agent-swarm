@@ -1,0 +1,15 @@
+{
+  "agent": "codex",
+  "ok": false,
+  "exitCode": null,
+  "stdout": "[dry-run] Would run:\ncodex exec --sandbox read-only --ask-for-approval never \"# Sub-agent delegation (codex)\n\n## Role\nYou are an external code reviewer. Analy...[1072 chars]\"\n\n[warning] codex exec not detected on PATH; command may fail if run live.",
+  "stderr": "",
+  "startedAt": "2026-05-27T03:05:24.415Z",
+  "finishedAt": "2026-05-27T03:05:24.725Z",
+  "durationMs": 0,
+  "commandPreview": "codex exec --sandbox read-only --ask-for-approval never \"# Sub-agent delegation (codex)\n\n## Role\nYou are an external code reviewer. Analy...[1072 chars]\"",
+  "prompt": "# Sub-agent delegation (codex)\n\n## Role\nYou are an external code reviewer. Analyze the task and context carefully.\n\n## Task\nReview README\n\n## Repository\n- Root: `D:\\Projects\\subagent-orchestrator\\agent-orchestrator`\n- Detected git root: `D:\\Projects\\subagent-orchestrator\\agent-orchestrator`\n\n## Context notes\n- git unavailable or not a repository; using workspace root only\n\n## Constraints\n- **REVIEW ONLY**: Do NOT modify any files on disk.\n- Do NOT run destructive commands (rm -rf, drop database, force push, etc.).\n- Do NOT expose secrets, tokens, API keys, or credentials in your output.\n- Provide suggested patches or notes instead of applying edits when review-only.\n\n## Expected output format\n```md\n# Subagent Result: codex\n\n## Verdict\n\n## Findings\n(Label each finding severity: blocker | high | medium | low | nit)\n\n## Suggested Changes\n\n## Risks\n\n## Commands / Tests Recommended\n\n## Patch Summary\n```\n\n## Review mode requirements\n- Provide precise, actionable findings.\n- Do not write or edit project files.\n- Prefer concrete file/line references when possible.",
+  "error": "codex is not available or does not support `codex exec` (dry-run preview only)",
+  "outputDir": "D:\\Projects\\subagent-orchestrator\\agent-orchestrator\\.agent-runs\\20260526-220524-codex-review-readme",
+  "outputFile": "D:\\Projects\\subagent-orchestrator\\agent-orchestrator\\.agent-runs\\20260526-220524-codex-review-readme\\stdout.md"
+}

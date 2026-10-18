@@ -1,0 +1,14 @@
+{
+  "agent": "codex",
+  "ok": false,
+  "exitCode": null,
+  "stdout": "",
+  "stderr": "",
+  "startedAt": "2026-05-27T03:03:40.247Z",
+  "finishedAt": "2026-05-27T03:03:40.275Z",
+  "durationMs": 0,
+  "commandPreview": "codex exec",
+  "error": "codex is not available or does not support `codex exec`",
+  "outputDir": "D:\\Projects\\subagent-orchestrator\\agent-orchestrator\\.agent-runs\\20260526-220340-codex-review-readme",
+  "outputFile": "D:\\Projects\\subagent-orchestrator\\agent-orchestrator\\.agent-runs\\20260526-220340-codex-review-readme\\stdout.md"
+}

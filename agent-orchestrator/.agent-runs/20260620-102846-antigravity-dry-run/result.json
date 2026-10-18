@@ -1,0 +1,15 @@
+{
+  "agent": "antigravity",
+  "ok": false,
+  "exitCode": null,
+  "stdout": "[dry-run] Would run:\nagy -p \"# Sub-agent delegation (antigravity)\n\n## Role\nYou are an external code reviewer....[1078 chars]\"\n\n[warning] agy -p/--prompt/--print not detected on PATH; command may fail if run live.",
+  "stderr": "",
+  "startedAt": "2026-06-20T15:28:46.237Z",
+  "finishedAt": "2026-06-20T15:28:46.426Z",
+  "durationMs": 0,
+  "commandPreview": "agy -p \"# Sub-agent delegation (antigravity)\n\n## Role\nYou are an external code reviewer....[1078 chars]\"",
+  "prompt": "# Sub-agent delegation (antigravity)\n\n## Role\nYou are an external code reviewer. Analyze the task and context carefully.\n\n## Task\ndry run\n\n## Repository\n- Root: `D:\\Projects\\subagent-orchestrator\\agent-orchestrator`\n- Detected git root: `D:\\Projects\\subagent-orchestrator\\agent-orchestrator`\n\n## Context notes\n- git unavailable or not a repository; using workspace root only\n\n## Constraints\n- **REVIEW ONLY**: Do NOT modify any files on disk.\n- Do NOT run destructive commands (rm -rf, drop database, force push, etc.).\n- Do NOT expose secrets, tokens, API keys, or credentials in your output.\n- Provide suggested patches or notes instead of applying edits when review-only.\n\n## Expected output format\n```md\n# Subagent Result: antigravity\n\n## Verdict\n\n## Findings\n(Label each finding severity: blocker | high | medium | low | nit)\n\n## Suggested Changes\n\n## Risks\n\n## Commands / Tests Recommended\n\n## Patch Summary\n```\n\n## Review mode requirements\n- Provide precise, actionable findings.\n- Do not write or edit project files.\n- Prefer concrete file/line references when possible.",
+  "error": "antigravity is not available or does not support non-interactive -p/--prompt/--print mode (dry-run preview only)",
+  "outputDir": "D:\\Projects\\subagent-orchestrator\\agent-orchestrator\\.agent-runs\\20260620-102846-antigravity-dry-run",
+  "outputFile": "D:\\Projects\\subagent-orchestrator\\agent-orchestrator\\.agent-runs\\20260620-102846-antigravity-dry-run\\stdout.md"
+}
