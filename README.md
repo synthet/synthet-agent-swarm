@@ -2,7 +2,7 @@
 
 Local MCP server that runs the same read-only judgement on the harnesses that are installed, then reports strict-majority agreement. Ties stay disputed. Votes are evidence, not ground truth.
 
-Harnesses: Codex, Claude Code, Antigravity (`agy`), Cursor (`agent`), Gemini CLI, and Grok. Code review is `swarm_run` with `mode: "review"`. Blind labelling is `mode: "judge"` or [docs/judges-swarm.md](docs/judges-swarm.md). The tool contract is [docs/api.md](docs/api.md).
+Harnesses: Codex, Claude Code, Antigravity (`agy`), Cursor (`agent`), Gemini CLI, and Grok. Code review is `swarm_run` with `mode: "review"`. Blind labelling is `mode: "judge"` or [docs/judges-swarm.md](docs/judges-swarm.md). The as-built design is [docs/design.md](docs/design.md). The tool contract is [docs/api.md](docs/api.md).
 
 ## Quick start
 
@@ -48,5 +48,6 @@ External agents return votes or review notes. Cursor remains the primary editor.
 ## Layout
 
 - `agent-orchestrator/` - TypeScript MCP server + CLI
+- `docs/design.md` - as-built design of the current server
 - `docs/acp-harness-matrix.md` - ACP research note; runners stay one-shot CLIs
 - `.agent-runs/` - persisted run outputs (gitignored)
