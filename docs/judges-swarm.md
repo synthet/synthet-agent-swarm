@@ -4,7 +4,7 @@ This repo runs the same read-only judgement on Codex, Antigravity, and Claude, s
 
 Agent-panel labels are evidence. They are not owner labels and not ground truth. Rendering blind images, calling Jev, and writing label files stay in the project that owns the study.
 
-Cursor and Gemini appear in the image-scoring panels below. This server does not invoke them yet.
+Cursor and Gemini appear in the image-scoring panels below. This server runs them, and Grok, when those commands are available. The as-built behavior is [design.md](design.md).
 
 ## What the image-scoring projects do
 
