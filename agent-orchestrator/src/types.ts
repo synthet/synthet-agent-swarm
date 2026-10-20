@@ -93,6 +93,8 @@ export interface CommandRunOptions {
   cwd: string;
   timeoutMs: number;
   env?: Record<string, string>;
+  /** Optional UTF-8 input; stdin is always closed after delivery. */
+  stdin?: string;
 }
 
 export interface CommandRunResult {
