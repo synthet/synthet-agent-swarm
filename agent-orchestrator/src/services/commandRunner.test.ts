@@ -14,6 +14,29 @@ describe("commandRunner", () => {
     resetSpawnImpl();
   });
 
+  it("closes stdin for noninteractive prompt-argument children", async () => {
+    const result = await runCommand({
+      argv: [process.execPath, "-e", "process.stdin.resume(); process.stdin.on('end', () => process.stdout.write('stdin-eof'))"],
+      cwd: process.cwd(),
+      timeoutMs: 1000,
+    });
+    expect(result.timedOut).toBe(false);
+    expect(result.exitCode).toBe(0);
+    expect(result.stdout).toBe("stdin-eof");
+  });
+
+  it("delivers multiline prompts exactly through stdin before EOF", async () => {
+    const prompt = 'first line\n"quoted" & | < > %PATH% \u03c0';
+    const result = await runCommand({
+      argv: [process.execPath, "-e", "process.stdin.setEncoding('utf8'); let text=''; process.stdin.on('data', part => text+=part); process.stdin.on('end', () => process.stdout.write(text));"],
+      cwd: process.cwd(),
+      timeoutMs: 2000,
+      stdin: prompt,
+    });
+    expect(result.timedOut).toBe(false);
+    expect(result.stdout).toBe(prompt);
+  });
+
   it("formats command preview with quoted long args", () => {
     const preview = formatCommandPreview(["codex", "exec", "x".repeat(200)]);
     expect(preview).toContain("codex");

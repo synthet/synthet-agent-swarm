@@ -35,7 +35,7 @@ export function clearCodexDetectionCache(): void {
 }
 
 export function buildCodexArgv(
-  prompt: string,
+  _prompt: string,
   workspaceRoot: string,
   detection: AgentDetectionInfo,
   config: OrchestratorConfig,
@@ -44,11 +44,11 @@ export function buildCodexArgv(
 ): string[] {
   const argv = [
     "codex",
+    "--ask-for-approval",
+    "never",
     "exec",
     "--sandbox",
     "read-only",
-    "--ask-for-approval",
-    "never",
   ];
 
   if (detection.supportsCd) {
@@ -63,8 +63,11 @@ export function buildCodexArgv(
     argv.push("--image", image);
   }
 
-  argv.push(prompt);
-  return applyModel(argv, "codex", model);
+  argv.push("-");
+  const withModel = applyModel(argv, "codex", model);
+  // --image consumes multiple values; keep the stdin marker positional.
+  withModel.splice(withModel.length - 1, 0, "--");
+  return withModel;
 }
 
 export async function runCodex(
@@ -140,6 +143,7 @@ export async function runCodex(
     argv,
     cwd: request.workspaceRoot,
     timeoutMs: request.timeoutMs ?? config.defaultTimeoutMs,
+    stdin: prompt,
   });
 
   const result = finalizeResult("codex", startedAt, commandPreview, run);

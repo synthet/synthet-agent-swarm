@@ -32,6 +32,13 @@ describe("buildCodexArgv", () => {
     clearCodexDetectionCache();
   });
 
+  it("places the global approval policy before exec", () => {
+    const argv = buildCodexArgv("task", "/repo", detection, config);
+    expect(argv.slice(0, 4)).toEqual(["codex", "--ask-for-approval", "never", "exec"]);
+    expect(argv.slice(4)).toContain("--sandbox");
+    expect(argv.slice(4)).toContain("read-only");
+  });
+
   it("uses read-only sandbox and never bypass flags", () => {
     const argv = buildCodexArgv("review task", "/repo", detection, config);
     expect(argv[0]).toBe("codex");
@@ -40,6 +47,14 @@ describe("buildCodexArgv", () => {
     expect(argv).not.toContain("--dangerously-bypass-approvals-and-sandbox");
     expect(argv).not.toContain("--full-auto");
     expect(argv).not.toContain("workspace-write");
+  });
+
+  it("separates the stdin marker from variadic images, keeping model flags before the separator", () => {
+    const argv = buildCodexArgv("judge prompt", "/repo", detection, config, ["/repo/a.jpg"], "selected-model");
+    expect(argv.slice(-2)).toEqual(["--", "-"]);
+    expect(argv).not.toContain("judge prompt");
+    expect(argv.indexOf("--model")).toBeLessThan(argv.indexOf("--"));
+    expect(argv.indexOf("--image")).toBeLessThan(argv.indexOf("--"));
   });
 
   it("includes --cd when supported", () => {

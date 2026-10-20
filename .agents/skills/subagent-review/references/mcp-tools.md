@@ -1,6 +1,6 @@
 # MCP tool reference - synthet-agent-swarm
 
-Server display name: **synthet-agent-swarm**. Contract: [docs/api.md](../../../../docs/api.md).
+Server display name: **synthet-agent-swarm**. The field contract is `docs/api.md` in the synthet-agent-swarm checkout.
 
 Tools are read-only. `swarm_search` lists harnesses. `swarm_run` runs one task. `run_judge_panel` runs a frozen manifest. The server does not call Jev or render images.
 

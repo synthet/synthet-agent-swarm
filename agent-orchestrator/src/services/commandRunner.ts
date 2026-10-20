@@ -120,6 +120,9 @@ export async function runCommand(
       });
     });
 
+    // Finish stdin even for argv-based prompts; Codex uses stdin to avoid CMD quoting.
+    child.stdin?.end(options.stdin);
+
     child.on("close", (code) => {
       clearTimeout(timer);
       resolvePromise({
