@@ -172,15 +172,20 @@ export function classifyObservation(input: {
   acpOnPath: boolean;
 }): HarnessObservation {
   const help = input.cliHelp ?? "";
+  // Grok also ships agent.exe. On Windows it can shadow Cursor's agent.cmd.
+  // A known conflicting identity must never count as a second provider vote.
+  const identityConflict = input.spec.id === "cursor" &&
+    /(?:^\s*Grok Build TUI\b|^\s*Usage:\s+grok\b)/im.test(help);
   const modelFlag = modelFlagFromHelp(help);
   const promptFlag = promptFlagFromHelp(help);
   const cli =
     input.spec.cliArgv !== null &&
+    !identityConflict &&
     input.cliOnPath &&
     cliTransportFromHelp(input.spec.id, help);
 
   let acpArgv = input.spec.acpArgv;
-  let acp = Boolean(input.acpOnPath && acpArgv);
+  let acp = Boolean(!identityConflict && input.acpOnPath && acpArgv);
   if (
     !acp &&
     (input.spec.id === "agy" || input.spec.id === "gemini") &&
@@ -202,6 +207,9 @@ export function classifyObservation(input: {
   else if (cli) cliMode = "print";
 
   const notes = [...input.spec.notes];
+  if (identityConflict) {
+    notes.push("The agent command identifies itself as Grok, not Cursor. Both transports are disabled; correct PATH/launcher identity before running Cursor.");
+  }
   if (!input.cliOnPath && input.spec.cliArgv) {
     notes.push("CLI command was not found on PATH.");
   }
