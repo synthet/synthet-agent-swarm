@@ -165,7 +165,7 @@ export async function runAcpTurn(
         fs: { readTextFile: false, writeTextFile: false },
         terminal: false,
       },
-      clientInfo: { name: "synthet-agent-swarm", version: "0.1.0" },
+      clientInfo: { name: "synthet-agent-swarm", version: "0.1.1" },
     }) as { authMethods?: Array<{ id: string }> } | undefined;
     if (input.authMethodIds && initialized?.authMethods?.length) {
       const methodId = input.authMethodIds.find(id =>
