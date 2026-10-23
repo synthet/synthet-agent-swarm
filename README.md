@@ -4,6 +4,8 @@ Local MCP server that runs the same read-only judgement on the harnesses that ar
 
 Harnesses: Codex, Claude Code, Antigravity (`agy`), Cursor (`agent`), Gemini CLI, and Grok. Code review is `swarm_run` with `mode: "review"`. Blind labelling is `mode: "judge"` or [docs/judges-swarm.md](docs/judges-swarm.md). The as-built design is [docs/design.md](docs/design.md). The tool contract is [docs/api.md](docs/api.md).
 
+Release notes: [CHANGELOG.md](CHANGELOG.md).
+
 ## Quick start
 
 ```bash
@@ -19,7 +21,7 @@ Detect installed CLIs:
 npm run detect
 ```
 
-Dry-run one judge, or the whole swarm (no subprocess):
+Dry-run one judge, or the whole swarm (no generation; discovery can run version/help probes):
 
 ```bash
 node dist/index.js run --agent codex --task "Review README" --dry-run
