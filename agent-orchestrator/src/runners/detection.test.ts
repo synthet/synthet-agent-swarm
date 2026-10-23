@@ -8,7 +8,7 @@ import {
 import { detectAntigravity, detectClaude, detectCodex } from "./detection.js";
 
 function toolBaseName(cmd: string): string {
-  return path.basename(cmd).replace(/\.(exe|cmd|bat)$/i, "").toLowerCase();
+  return path.basename(cmd).replace(/\.(exe|cmd|bat|js|cjs|mjs)$/i, "").toLowerCase();
 }
 
 /** Normalize spawn target after Windows PATH / .cmd resolution. */
@@ -16,6 +16,9 @@ function spawnInvocation(
   cmd: string,
   args: string[],
 ): { tool: string; argv: string[] } {
+  if (toolBaseName(cmd) === "node" && /\.(?:cjs|mjs|js)$/i.test(args[0] ?? "")) {
+    return { tool: toolBaseName(args[0]), argv: args.slice(1) };
+  }
   if (args[0] === "/d" && args[2] === "/c" && typeof args[3] === "string") {
     const inner = args[3];
     const toolMatch = inner.match(/(?:^|[\s"\\])([\w-]+)\.(cmd|exe|bat)\b/i);
@@ -68,6 +71,27 @@ describe("detection", () => {
 
   afterEach(() => {
     resetSpawnImpl();
+  });
+
+  it.each([
+    ["  --prompt <text>", "--prompt"],
+    ["  --print [text]", "--print"],
+    ["  --permission-mode <mode>", undefined],
+    ["  --prompt-file <path>", undefined],
+  ])("detects only the exact advertised Antigravity prompt flag: %s", async (help, expected) => {
+    setSpawnImpl(((_cmd: string, args: string[]) => {
+      const child = Object.assign(new EventEmitter(), {
+        stdout: new EventEmitter(), stderr: new EventEmitter(), kill() {},
+      });
+      process.nextTick(() => {
+        child.stdout.emit("data", args.includes("--version") ? "1.0.0" : help);
+        child.emit("close", 0);
+      });
+      return child as never;
+    }) as never);
+    const result = await detectAntigravity(1000, process.cwd());
+    expect(result.promptFlag).toBe(expected);
+    expect(result.mode).toBe(expected ? "prompt" : null);
   });
 
   it("detects codex exec mode", async () => {

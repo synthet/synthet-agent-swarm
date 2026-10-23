@@ -7,6 +7,28 @@ import {
   resolveSpawnTarget,
   wrapWindowsCmdInvocation,
 } from "./resolveExecutable.js";
+import { runCommand } from "./commandRunner.js";
+
+function npmNodeShim(entry: string): string {
+  return `@ECHO off
+GOTO start
+:find_dp0
+SET dp0=%~dp0
+EXIT /b
+:start
+SETLOCAL
+CALL :find_dp0
+
+IF EXIST "%dp0%\\node.exe" (
+  SET "_prog=%dp0%\\node.exe"
+) ELSE (
+  SET "_prog=node"
+  SET PATHEXT=%PATHEXT:;.JS;=;%
+)
+
+endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "%dp0%\\${entry}" %*
+`;
+}
 
 describe("resolveExecutable", () => {
   const tempDirs: string[] = [];
@@ -25,10 +47,47 @@ describe("resolveExecutable", () => {
     mkdirSync(dir, { recursive: true });
     tempDirs.push(dir);
     for (const [name, content] of Object.entries(files)) {
+      mkdirSync(path.dirname(path.join(dir, name)), { recursive: true });
       writeFileSync(path.join(dir, name), content);
     }
     return dir;
   }
+
+  it("launches a standard npm Node shim without CMD and preserves hostile-but-inert arguments", async () => {
+    if (process.platform !== "win32") return;
+    const bin = makeBinDir({
+      "node_modules/fixture/cli.cjs": "process.stdout.write(JSON.stringify(process.argv.slice(2)));",
+      "fixture.cmd": npmNodeShim("node_modules\\fixture\\cli.cjs"),
+    });
+    const args = ["%SWARM_FIXTURE_EXPANSION%", "blind/a&b.jpg", 'line one\n"quoted" | < > ^ !', "", "folder with space\\", "π"];
+    const shim = path.join(bin, "fixture.cmd");
+    const target = resolveSpawnTarget(shim, args, {});
+    expect(target.file.toLowerCase()).not.toContain("cmd.exe");
+    const result = await runCommand({
+      argv: [shim, ...args], cwd: bin, timeoutMs: 2000,
+      env: { SWARM_FIXTURE_EXPANSION: "must-not-expand" },
+    });
+    expect(result.exitCode).toBe(0);
+    expect(JSON.parse(result.stdout)).toEqual(args);
+  });
+
+  it("does not bypass a customized shim that adds bootstrap commands", () => {
+    if (process.platform !== "win32") return;
+    const bin = makeBinDir({
+      "node_modules/fixture/cli.cjs": "",
+      "fixture.cmd": "@echo custom bootstrap\n" + npmNodeShim("node_modules\\fixture\\cli.cjs"),
+    });
+    const shim = path.join(bin, "fixture.cmd");
+    expect(() => resolveSpawnTarget(shim, ["prompt\nwith shell & syntax"], {}))
+      .toThrow(/safely|batch/i);
+  });
+
+  it.each(["a&echo INERT", "%PATH%", 'a"b', "line\nbreak", "!value!", "a^b"])(
+    "refuses unsafe arguments to an unsupported Windows batch launcher: %s", (argument) => {
+      expect(() => wrapWindowsCmdInvocation("C:\\tools\\custom.cmd", [argument], {}))
+        .toThrow(/safely|batch/i);
+    },
+  );
 
   it("prefers .cmd over extensionless npm shim on Windows", () => {
     if (process.platform !== "win32") return;

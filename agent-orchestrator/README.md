@@ -102,7 +102,7 @@ Defaults: `config.default.json`. Override per workspace with `.agent-orchestrato
 - Credentials are **not** injected by this package; CLIs use your existing login (`codex`, `agy`, `claude` auth).
 - Child processes receive a **whitelist** env subset only (PATH, locale, provider API keys if already set).
 - Logs and `.agent-runs/` are **redacted** for common token patterns.
-- Codex runs with `exec --sandbox read-only --ask-for-approval never` — no bypass/sandbox-disable flags.
+- Codex runs with `--ask-for-approval never exec --sandbox read-only` — no bypass/sandbox-disable flags.
 - Antigravity runs in non-interactive prompt mode (`agy -p` / `--prompt` / `--print`) only — no permission-skip flags.
 - `.env`, keys, and binary files are excluded from prompts.
 
@@ -111,7 +111,7 @@ Defaults: `config.default.json`. Override per workspace with `.agent-orchestrato
 Each run creates:
 
 ```text
-.agent-runs/YYYYMMDD-HHMMSS-<agent>-<slug>/
+.agent-runs/YYYYMMDD-HHMMSS-<agent>-<slug>-<unique>/
   request.json
   stdout.md
   stderr.log
@@ -126,6 +126,8 @@ Each run creates:
 - Agreement uses string fields in the last JSON object. The server does not render images, call Jev, or grade domain rubrics
 - A requested `model` fails the whole call when any selected harness does not advertise `--model`
 - CLI flags vary by installed version; see `notes` from `swarm_search`
+- Standard npm Node shims launch without CMD on Windows. Rich prompts through unsupported custom batch launchers are rejected; use a native executable or an advertised ACP transport
+- Evidence and artifact roots are checked through filesystem links. Provider permissions still govern later reads and tool activity
 
 ## Tests
 

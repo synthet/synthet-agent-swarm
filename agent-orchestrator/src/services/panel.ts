@@ -70,8 +70,15 @@ export function panelEvidenceFiles(items: PanelItem[]): string[] {
   return files;
 }
 
-export function panelTask(task: string, ids: string[]): string {
-  const suffix = `\n\nItem ids: ${ids.join(", ")}\nReturn only one JSON object with an images array. Each row uses one of these ids.`;
+export function panelTask(task: string, ids: string[], items?: PanelItem[]): string {
+  const files = items ? panelEvidenceFiles(items) : [];
+  const positions = new Map(files.map((file, index) => [file.replace(/\\/g, "/"), index + 1]));
+  const mapping = items
+    ? "\nEvidence positions by item (1-based positions in the evidence list):\n" + items.map(item =>
+        `${item.id}: ${item.files.map(file => positions.get(file.replace(/\\/g, "/"))).join(", ")}`,
+      ).join("\n")
+    : "";
+  const suffix = `\n\nItem ids: ${ids.join(", ")}${mapping}\nReturn only one JSON object with an images array. Return exactly one row per requested id, with no missing or additional ids.`;
   const combined = `${task.trim()}${suffix}`;
   if (combined.length > 8000) {
     throw new Error(
@@ -111,6 +118,7 @@ export function panelSwarmInput(input: {
     task: panelTask(
       input.task,
       input.items.map((item) => item.id),
+      input.items,
     ),
     files: panelEvidenceFiles(input.items),
     harnesses,
@@ -250,7 +258,7 @@ export function panelBuild(
     items: items.map((item) => ({ id: item.id, files: [...item.files] })),
     files: panelEvidenceFiles(items),
     note: blind
-      ? "Evidence paths are attachments only and are omitted from the prompt text."
+      ? "Git context and extraContext are omitted. Evidence paths remain visible to file-reading judges; use neutral filenames and blind renditions."
       : "Informed panel. extraContext is visible to judges.",
   };
 }

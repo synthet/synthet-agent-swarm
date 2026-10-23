@@ -14,6 +14,7 @@ import {
 } from "../services/resultStore.js";
 import { agreeVotes, emptyAgreement, type SwarmAgreement } from "../services/votes.js";
 import type { RunSubagentMcpResponse } from "../types.js";
+import { redactSecrets } from "../services/redaction.js";
 import {
   executeSwarm,
   legacyAgentName,
@@ -129,6 +130,7 @@ export function assembleJudgePanel(args: {
   humanLabels?: PanelInput["humanLabels"];
 }): JudgePanelResponse {
   const agreement = args.swarm.agreement;
+  const noUsableVotes = !args.dryRun && agreement.parsedAgents.length === 0;
   const hasLabels = Boolean(
     args.humanLabels && Object.keys(args.humanLabels).length > 0,
   );
@@ -143,7 +145,7 @@ export function assembleJudgePanel(args: {
         };
 
   return {
-    ok: args.swarm.ok,
+    ok: args.swarm.ok && !noUsableVotes,
     dryRun: args.dryRun,
     stages: {
       build: args.build,
@@ -164,12 +166,12 @@ export function assembleJudgePanel(args: {
       rules: { applied: false, note: RULES_NOTE },
     },
     note: agreement.note,
-    error: args.swarm.error,
+    error: args.swarm.error ?? (noUsableVotes ? "No usable replies matched the panel manifest. Inspect judge status and raw outputs." : undefined),
   };
 }
 
-function toJudgeSwarm(result: SwarmRunResponse): JudgeSwarmResponse {
-  const votes = result.harnesses.filter((row) => row.transport !== null);
+function toJudgeSwarm(result: SwarmRunResponse, expectedIds: string[]): JudgeSwarmResponse {
+  const votes = result.harnesses.filter((row) => row.transport !== null && row.ok);
   const agreement = result.dryRun
     ? emptyAgreement("Dry run collects no votes.")
     : agreeVotes(
@@ -177,6 +179,7 @@ function toJudgeSwarm(result: SwarmRunResponse): JudgeSwarmResponse {
           agent: legacyAgentName(row.id),
           text: row.stdout,
         })),
+        expectedIds,
       );
   return {
     ok: result.ok,
@@ -233,7 +236,10 @@ export async function runJudgePanelTool(
     );
   }
 
-  const swarm = toJudgeSwarm(await executeSwarm({ ...swarmInput, mode: "judge" }));
+  const swarm = toJudgeSwarm(
+    await executeSwarm({ ...swarmInput, mode: "judge" }),
+    input.items.map(item => item.id),
+  );
   const assembled = assembleJudgePanel({
     build,
     swarm,
@@ -242,14 +248,20 @@ export async function runJudgePanelTool(
   });
 
   const workspaceRoot = getWorkspaceRoot();
-  const stored = storePanelSummary(
-    workspaceRoot,
-    input.task,
-    assembled,
-    loadConfig(workspaceRoot),
-  );
-  if (stored) {
-    assembled.outputDir = relativeOutputPath(workspaceRoot, stored);
+  try {
+    const stored = storePanelSummary(
+      workspaceRoot,
+      input.task,
+      assembled,
+      loadConfig(workspaceRoot),
+    );
+    if (stored) {
+      assembled.outputDir = relativeOutputPath(workspaceRoot, stored);
+    }
+  } catch (err) {
+    assembled.ok = false;
+    const diagnostic = redactSecrets(err instanceof Error ? err.message : String(err));
+    assembled.error = [assembled.error, `Could not store the panel summary: ${diagnostic}`].filter(Boolean).join(" ");
   }
   return assembled;
 }

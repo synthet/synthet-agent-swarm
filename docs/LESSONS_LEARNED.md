@@ -14,7 +14,9 @@ Distilled from agent session history (Claude Code + Cursor). This MCP server
 detects and runs external CLI sub-agents (Codex, Antigravity, Claude) for
 **review-only** work.
 
-## Agent capability matrix (v0.1)
+## Historical capability matrix (superseded)
+
+The table below records an early implementation, not current availability. Claude now executes through `claude -p` or an installed ACP adapter. Use [api.md](api.md) and `swarm_search` for the current six-harness contract. The [2026-10-22 log review](harness-log-review-2026-10-22.md) distinguishes process status, parsed votes, image access and actual agreement.
 Detection reported three agents, but they are **not** equally runnable:
 
 | Agent  | Mode      | Runnable | Notes |
@@ -48,6 +50,6 @@ old PATH and won't see the agents.
   key.
 
 ## Usage
-Drive live reviews with `/check-subagents`, `/run-codex-review`,
-`/run-antigravity-review`, or `/run-subagent-review` (panel/tie-breaker). See backend
+Drive live reviews with `/swarm`: `swarm_search`, then `swarm_run` or `run_judge_panel`. The older `/check-subagents`, `/run-codex-review`,
+`/run-antigravity-review`, and `/run-subagent-review` commands are compatibility stubs. See backend
 [`docs/technical/EXTERNAL_CLI_REVIEWS.md`](https://github.com/synthet/image-scoring-pipeline/blob/main/docs/technical/EXTERNAL_CLI_REVIEWS.md).

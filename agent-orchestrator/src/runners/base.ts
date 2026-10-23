@@ -79,7 +79,7 @@ export function finalizeResult(
   const durationMs =
     new Date(finishedAt).getTime() - new Date(startedAt).getTime();
   const ok =
-    run.exitCode === 0 && !run.timedOut && !run.error?.includes("timed out");
+    run.exitCode === 0 && !run.timedOut && !run.error;
 
   return {
     agent,

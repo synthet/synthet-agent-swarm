@@ -2,6 +2,8 @@
 
 This repo runs the same read-only judgement on Codex, Antigravity, and Claude, stores each raw reply, and reports agreement. A field is agreed only when at least two judges share a strict majority. Ties and single votes stay disputed.
 
+The [2026-10-22 harness log review](harness-log-review-2026-10-22.md) traces retained failures, implemented reliability fixes, and remaining image-access and startup-isolation work. Process success alone does not establish a usable judge or a quorum.
+
 Agent-panel labels are evidence. They are not owner labels and not ground truth. Rendering blind images, calling Jev, and writing label files stay in the project that owns the study.
 
 Cursor and Gemini appear in the image-scoring panels below. This server runs them, and Grok, when those commands are available. The as-built behavior is [design.md](design.md).

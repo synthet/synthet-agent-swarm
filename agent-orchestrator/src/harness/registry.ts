@@ -50,7 +50,9 @@ export interface SwarmError {
     | "path_rejected"
     | "timeout"
     | "acp_protocol"
-    | "invalid_arguments";
+    | "invalid_arguments"
+    | "execution_failed"
+    | "artifact_storage";
   message: string;
   details: Record<string, unknown>;
   retryable: boolean;
@@ -140,20 +142,25 @@ export const HARNESS_SPECS: HarnessSpec[] = [
 
 const HARNESS_IDS = new Set<string>(HARNESS_SPECS.map((spec) => spec.id));
 
+export function helpHasFlag(help: string, flag: string): boolean {
+  const escaped = flag.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  return new RegExp(`(?:^|[\\s,])${escaped}(?=$|[\\s,=\\[<])`, "i").test(help);
+}
+
 export function modelFlagFromHelp(help: string): "--model" | null {
-  return /(?:^|\s)--model\b/.test(help) ? "--model" : null;
+  return helpHasFlag(help, "--model") ? "--model" : null;
 }
 
 export function cliTransportFromHelp(id: HarnessId, help: string): boolean {
   if (id === "grok") return false;
   if (id === "codex") return /\bexec\b/.test(help);
-  return /(?:^|\s)(?:-p|--print|--prompt)\b/.test(help);
+  return promptFlagFromHelp(help) !== undefined;
 }
 
-function promptFlagFromHelp(help: string): "-p" | "--prompt" | "--print" | undefined {
-  if (/(?:^|\s)-p\b/.test(help)) return "-p";
-  if (/(?:^|\s)--prompt\b/.test(help)) return "--prompt";
-  if (/(?:^|\s)--print\b/.test(help)) return "--print";
+export function promptFlagFromHelp(help: string): "-p" | "--prompt" | "--print" | undefined {
+  if (helpHasFlag(help, "-p")) return "-p";
+  if (helpHasFlag(help, "--prompt")) return "--prompt";
+  if (helpHasFlag(help, "--print")) return "--print";
   return undefined;
 }
 
@@ -221,7 +228,7 @@ export function classifyObservation(input: {
     ),
     cliMode,
     promptFlag,
-    supportsCd: /(?:^|\s)--cd\b/.test(help),
+    supportsCd: helpHasFlag(help, "--cd"),
     notes,
   };
 }
@@ -392,7 +399,10 @@ export function planSwarmRun(input: {
 
   const steps: PlanStep[] = [];
   const runnable: RunnablePlan[] = [];
+  const seen = new Set<string>();
   for (const item of resolved) {
+    if (seen.has(item.id)) continue;
+    seen.add(item.id);
     const observation = byId.get(item.id);
     if (!observation || !allowed.has(item.id) || !observation.available) {
       steps.push({

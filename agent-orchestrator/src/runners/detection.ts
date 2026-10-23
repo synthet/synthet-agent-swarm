@@ -1,5 +1,6 @@
 import { runCommand } from "../services/commandRunner.js";
 import type { AgentDetectionInfo, SubagentName } from "../types.js";
+import { helpHasFlag, promptFlagFromHelp } from "../harness/registry.js";
 
 const AGENT_COMMANDS: Record<Exclude<SubagentName, "antigravity">, string> = {
   codex: "codex",
@@ -30,8 +31,7 @@ function extractVersion(output: string): string | null {
 }
 
 function helpSupportsFlag(help: string, flags: string[]): boolean {
-  const lower = help.toLowerCase();
-  return flags.some((f) => lower.includes(f.toLowerCase()));
+  return flags.some((flag) => helpHasFlag(help, flag));
 }
 
 export async function detectCodex(
@@ -124,19 +124,7 @@ export async function detectAntigravity(
     };
   }
 
-  let promptFlag: "-p" | "--prompt" | "--print" | undefined;
-  const hasP =
-    helpSupportsFlag(helpText, ["-p"]) || /\s-p[,|\s]/i.test(helpText);
-  const hasPrompt = helpText.includes("--prompt");
-  const hasPrint = helpText.includes("--print");
-
-  if (hasP) {
-    promptFlag = "-p";
-  } else if (hasPrompt) {
-    promptFlag = "--prompt";
-  } else if (hasPrint) {
-    promptFlag = "--print";
-  }
+  const promptFlag = promptFlagFromHelp(helpText);
 
   const mode = promptFlag ? "prompt" : null;
   if (!promptFlag) {

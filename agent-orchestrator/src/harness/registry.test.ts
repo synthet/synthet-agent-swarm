@@ -92,6 +92,18 @@ describe("planSwarmRun", () => {
     cliMode: null,
   });
 
+  it("launches each canonical harness once even when aliases resolve to it", () => {
+    const plan = planSwarmRun({
+      observations: [agy, cursor, observation("gemini")],
+      harnesses: ["agy", "antigravity", "gemini", "cursor", "agent"],
+      allowed,
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    expect(plan.steps.map(step => step.kind === "run" ? step.plan.id : step.skip.id))
+      .toEqual(["agy", "cursor"]);
+  });
+
   it("picks CLI for agy and ACP for cursor when transport is auto", () => {
     const plan = planSwarmRun({
       observations: [agy, cursor],
@@ -165,6 +177,17 @@ describe("applyModel", () => {
 });
 
 describe("classifyObservation", () => {
+  it("does not infer prompt or model flags from longer option names", () => {
+    const row = classifyObservation({
+      spec: spec("agy"), cliOnPath: true,
+      cliHelp: "--prompt-file <path> --model-route <name> --permission-mode <mode>",
+      version: "test", acpOnPath: false,
+    });
+    expect(row.cliMode).toBeNull();
+    expect(row.modelFlag).toBeNull();
+    expect(row.promptFlag).toBeUndefined();
+  });
+
   it("does not treat a help timeout as an ACP transport", () => {
     const row = classifyObservation({
       spec: spec("cursor"),

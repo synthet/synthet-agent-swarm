@@ -1,4 +1,4 @@
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, lstatSync, readFileSync, realpathSync, statSync } from "node:fs";
 import {
   resolve,
   normalize,
@@ -7,6 +7,7 @@ import {
   basename,
   dirname,
   isAbsolute,
+  sep,
 } from "node:path";
 
 const SECRET_BASENAMES = new Set([
@@ -56,18 +57,56 @@ export class PathSafetyError extends Error {
   }
 }
 
+// Missing evidence is useful in a dry-run, but existing ancestor links must still
+// be resolved. A dangling link or unreadable ancestor fails closed.
+function canonicalPath(filePath: string): string {
+  let candidate = resolve(filePath);
+  const remaining: string[] = [];
+  for (;;) {
+    let present = false;
+    try {
+      lstatSync(candidate);
+      present = true;
+    } catch (err) {
+      const code = (err as NodeJS.ErrnoException).code;
+      if (code !== "ENOENT" && code !== "ENOTDIR") {
+        throw new PathSafetyError(`Cannot inspect path safely: ${candidate}`);
+      }
+    }
+    if (present) {
+      try {
+        return resolve(realpathSync(candidate), ...remaining);
+      } catch {
+        throw new PathSafetyError(`Cannot resolve path safely: ${candidate}`);
+      }
+    }
+    const parent = dirname(candidate);
+    if (parent === candidate) throw new PathSafetyError(`Cannot resolve path safely: ${candidate}`);
+    remaining.unshift(basename(candidate));
+    candidate = parent;
+  }
+}
+
+function contained(root: string, target: string): boolean {
+  const rel = relative(root, target);
+  return rel !== ".." && !rel.startsWith(`..${sep}`) && !isAbsolute(rel);
+}
+
 export function isPathInsideWorkspace(
   workspaceRoot: string,
   targetPath: string,
 ): boolean {
   const root = normalize(resolve(workspaceRoot));
   const target = normalize(resolve(workspaceRoot, targetPath));
-  const rel = relative(root, target);
-  if (rel === "") return true;
   // On Windows, path.relative() across different drives returns the absolute
   // target unchanged (e.g. "C:\\foo"), which would silently bypass a
   // ".."-prefix check. Reject any absolute relative result too.
-  return !rel.startsWith("..") && !isAbsolute(rel);
+  if (!contained(root, target)) return false;
+  try {
+    return contained(canonicalPath(root), canonicalPath(target));
+  } catch {
+    return false;
+  }
 }
 
 export function isSecretPath(filePath: string): boolean {
@@ -111,12 +150,13 @@ function resolveListedFiles(
       );
     }
     const abs = resolve(workspaceRoot, file);
-    if (isSecretPath(file) || isSecretPath(abs)) {
+    const physical = canonicalPath(abs);
+    if (isSecretPath(file) || isSecretPath(abs) || isSecretPath(physical)) {
       throw new PathSafetyError(
         `Refusing to include secret file in context: ${file}`,
       );
     }
-    if (isBinaryPath(file) && !(allowImages && isImagePath(file))) {
+    if ([file, physical].some(path => isBinaryPath(path) && !(allowImages && isImagePath(path)))) {
       throw new PathSafetyError(
         `Refusing to include binary file in context: ${file}`,
       );
