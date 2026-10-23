@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { validateSubagentRequest } from "./base.js";
+import { finalizeResult, validateSubagentRequest } from "./base.js";
 import type { OrchestratorConfig } from "../types.js";
 
 const config: OrchestratorConfig = {
@@ -13,6 +13,16 @@ const config: OrchestratorConfig = {
   storePrompts: false,
   detectionTimeoutMs: 10000,
 };
+
+describe("finalizeResult", () => {
+  it("does not treat a zero exit as success when prompt delivery failed", () => {
+    const result = finalizeResult("codex", new Date().toISOString(), "test", {
+      exitCode: 0, stdout: '{"choice":"A"}', stderr: "", error: "Failed to deliver stdin: EPIPE",
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error).toContain("EPIPE");
+  });
+});
 
 describe("validateSubagentRequest", () => {
   it("rejects allowWrites=true", () => {

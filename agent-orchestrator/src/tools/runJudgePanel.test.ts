@@ -51,6 +51,16 @@ describe("runJudgePanelInputSchema", () => {
 });
 
 describe("assembleJudgePanel", () => {
+  it("does not report live panel success when no usable replies were parsed", () => {
+    const panel = assembleJudgePanel({
+      build: { blind: true, items: [{ id: "a", files: ["a.jpg"] }], files: ["a.jpg"], note: "" },
+      swarm: { ok: true, dryRun: false, judges: [], agreement: emptyAgreement("No usable replies."), note: "" },
+      dryRun: false,
+    });
+    expect(panel.ok).toBe(false);
+    expect(panel.error).toMatch(/usable/i);
+  });
+
   it("returns a text-only Jev state and does not call Jev", () => {
     const swarm: JudgeSwarmResponse = {
       ok: true,

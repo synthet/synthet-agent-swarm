@@ -32,7 +32,7 @@ export interface JudgeSwarmResponse {
 }
 
 function toLegacySwarm(result: SwarmRunResponse): JudgeSwarmResponse {
-  const votes = result.harnesses.filter((row) => row.transport !== null);
+  const votes = result.harnesses.filter((row) => row.transport !== null && row.ok);
   const agreement = result.dryRun
     ? emptyAgreement("Dry run previews commands only. No votes were collected.")
     : agreeVotes(

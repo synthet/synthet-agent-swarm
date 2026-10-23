@@ -1,4 +1,4 @@
-import { runAcpTurn } from "../acp/client.js";
+import { AcpTurnError, runAcpTurn } from "../acp/client.js";
 import { spawnAcpProcess } from "../acp/spawn.js";
 import { clampTimeout, getWorkspaceRoot, loadConfig } from "../config.js";
 import { detectionFromObservation, observeHarnesses } from "../harness/observe.js";
@@ -16,7 +16,8 @@ import { buildAntigravityArgv } from "../runners/antigravity.js";
 import { buildClaudeArgv } from "../runners/claude.js";
 import { buildCodexArgv } from "../runners/codex.js";
 import { runSubagentForRequest } from "../runners/index.js";
-import { formatCommandPreview, runCommand } from "../services/commandRunner.js";
+import { buildChildEnv, formatCommandPreview, runCommand } from "../services/commandRunner.js";
+import { resolveSpawnTarget } from "../services/resolveExecutable.js";
 import {
   evidenceDirectories,
   evidenceImagePaths,
@@ -39,7 +40,7 @@ import type {
   SubagentRequest,
   SubagentResult,
 } from "../types.js";
-import { createErrorResult, finalizeResult } from "../runners/base.js";
+import { finalizeResult } from "../runners/base.js";
 
 export interface ExecuteSwarmInput {
   task: string;
@@ -93,16 +94,16 @@ function runtimeError(result: SubagentResult): SwarmError | undefined {
       "timeout",
       message,
       {},
-      ["Raise timeoutMs or retry this harness."],
+      ["Inspect the recorded phase and stderr before retrying. timeoutMs covers startup, MCP initialization, and the prompt; increase it only within the run budget."],
       true,
     );
   }
-  if (/acp_protocol/i.test(message)) {
+  if (/acp_protocol|\bACP\b/i.test(message)) {
     return swarmError(
       "acp_protocol",
-      "The ACP handshake failed for this harness.",
+      message,
       { message },
-      ["Retry with transport cli when that harness has a print mode."],
+      ["Inspect the phase and saved stderr. Use transport cli only when swarm_search advertises it."],
     );
   }
   return swarmError("harness_unavailable", message, { harness: result.agent });
@@ -158,6 +159,7 @@ async function runPlan(
   const startedAt = new Date().toISOString();
 
   if (request.dryRun) {
+    resolveSpawnTarget(argv[0] ?? "", argv.slice(1), buildChildEnv());
     return {
       agent: plan.id,
       ok: true,
@@ -188,6 +190,9 @@ async function runPlan(
         cwd: request.workspaceRoot,
         prompt,
         timeoutMs: request.timeoutMs ?? config.defaultTimeoutMs,
+        authMethodIds: plan.id === "grok"
+          ? process.env.XAI_API_KEY ? ["xai.api_key", "cached_token"] : ["cached_token"]
+          : undefined,
       });
       const stderr =
         turn.deniedPermissions > 0
@@ -196,16 +201,17 @@ async function runPlan(
       return finalizeResult(plan.id, startedAt, commandPreview, {
         exitCode: 0,
         stdout: turn.text,
-        stderr,
+        stderr: [io.diagnostics?.(), stderr].filter(Boolean).join("\n"),
       });
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
-      return createErrorResult(
-        plan.id,
-        message === "timeout" ? `Command timed out after ${request.timeoutMs}ms` : "acp_protocol",
-        commandPreview,
-        startedAt,
-      );
+      return finalizeResult(plan.id, startedAt, commandPreview, {
+        exitCode: null,
+        stdout: err instanceof AcpTurnError ? err.text : "",
+        stderr: io.diagnostics?.() ?? "",
+        error: err instanceof AcpTurnError ? message : "acp_protocol",
+        timedOut: err instanceof AcpTurnError && err.code === "timeout",
+      });
     }
   }
 
@@ -326,28 +332,57 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
   };
 
   const harnesses = await Promise.all(
-    planned.steps.map((step) => executeStep(step, request, config, promptFor)),
+    planned.steps.map(async (step): Promise<HarnessRunRow> => {
+      try {
+        return await executeStep(step, request, config, promptFor);
+      } catch (err) {
+        const id = step.kind === "run" ? step.plan.id : step.skip.id;
+        const message = redactSecrets(err instanceof Error ? err.message : String(err));
+        return {
+          id,
+          transport: step.kind === "run" ? step.plan.transport : null,
+          ok: false,
+          summary: message,
+          stdout: "",
+          exitCode: null,
+          durationMs: 0,
+          error: swarmError("execution_failed", message, { harness: id }, [
+            "Inspect this harness's launch and artifact-storage diagnostics. Other harness results are retained.",
+          ]),
+        };
+      }
+    }),
   );
 
-  const votes = harnesses.filter((row) => row.transport !== null);
+  const votes = harnesses.filter((row) => row.transport !== null && row.ok);
   const agreement =
-    !dryRun && votes.length >= 2
+    !dryRun && harnesses.filter((row) => row.transport !== null).length >= 2
       ? agreeVotes(votes.map((row) => ({ agent: row.id, text: row.stdout })))
       : undefined;
 
   const ok = dryRun ? harnesses.every((row) => row.ok) : harnesses.some((row) => row.ok);
   const publicRows = harnesses;
-  const stored = storeSwarmSummary(
-    workspaceRoot,
-    input.task,
-    {
-      task: input.task,
-      dryRun,
-      harnesses: publicRows.map(({ stdout: _stdout, ...row }) => row),
-      agreement,
-    },
-    config,
-  );
+  let stored: string | null;
+  try {
+    stored = storeSwarmSummary(
+      workspaceRoot,
+      input.task,
+      {
+        task: input.task,
+        dryRun,
+        harnesses: publicRows.map(({ stdout: _stdout, ...row }) => row),
+        agreement,
+      },
+      config,
+    );
+  } catch (err) {
+    return {
+      ok: false, dryRun, harnesses, agreement,
+      error: swarmError("artifact_storage", "Could not store the swarm summary.", {
+        message: redactSecrets(err instanceof Error ? err.message : String(err)),
+      }, ["Check output-directory access and disk space. Collected harness results are included in this response."]),
+    };
+  }
 
   const failed = harnesses.filter((row) => !row.ok);
   return {

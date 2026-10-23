@@ -20,6 +20,19 @@ describe("panelEvidenceFiles", () => {
 });
 
 describe("panelSwarmInput", () => {
+  it("maps each item to the deduplicated evidence positions without exposing paths in the task", () => {
+    const input = panelSwarmInput({
+      task: "Compare A and B", items: [
+        { id: "x", files: ["blind/first.jpg", "blind/shared.jpg"] },
+        { id: "y", files: ["blind/third.jpg", "blind\\shared.jpg"] },
+      ],
+    });
+    expect(input.task).toContain("x: 1, 2");
+    expect(input.task).toContain("y: 3, 2");
+    expect(input.task).not.toContain(".jpg");
+    expect(input.files).toEqual(["blind/first.jpg", "blind/shared.jpg", "blind/third.jpg"]);
+  });
+
   it("keeps a blind prompt free of evidence paths and extra context", () => {
     const swarm = panelSwarmInput({
       task: "Choose A or B",

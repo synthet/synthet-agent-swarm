@@ -26,6 +26,9 @@ export function spawnAcpProcess(argv: string[], cwd: string): AcpIo {
   });
   const queue = createLineQueue();
   let buffer = "";
+  let diagnostics = "";
+  const addDiagnostic = (text: string) => { diagnostics = (diagnostics + text).slice(-16384); };
+  child.stderr?.on("data", (chunk: Buffer | string) => addDiagnostic(chunk.toString()));
   child.stdout?.on("data", (chunk: Buffer | string) => {
     buffer += chunk.toString();
     let index = buffer.indexOf("\n");
@@ -35,15 +38,30 @@ export function spawnAcpProcess(argv: string[], cwd: string): AcpIo {
       index = buffer.indexOf("\n");
     }
   });
-  const finish = () => queue.push(null);
-  child.on("close", finish);
-  child.on("error", finish);
+  const finish = () => {
+    if (buffer) queue.push(buffer.replace(/\r$/, ""));
+    buffer = "";
+    queue.push(null);
+  };
+  child.on("close", (code, signal) => {
+    addDiagnostic(`\nACP process closed (code ${code}, signal ${signal}).`);
+    finish();
+  });
+  child.on("error", (error) => {
+    addDiagnostic(`\nACP process error: ${error.message}`);
+    finish();
+  });
+  child.stdin?.on("error", (error) => {
+    addDiagnostic(`\nACP stdin error: ${error.message}`);
+    finish();
+  });
   return {
     write(line) {
       const payload = line.endsWith("\n") ? line : `${line}\n`;
       child.stdin?.write(payload);
     },
     read: () => queue.read(),
+    diagnostics: () => diagnostics,
     kill() {
       child.kill("SIGTERM");
       queue.push(null);

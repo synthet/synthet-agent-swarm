@@ -1,4 +1,4 @@
-import { accessSync, constants as fsConstants } from "node:fs";
+import { accessSync, constants as fsConstants, readFileSync } from "node:fs";
 import path from "node:path";
 
 /** Windows PATHEXT order: prefer native binaries over npm .cmd shims. */
@@ -92,9 +92,47 @@ export function resolveExecutableOnPath(
   return null;
 }
 
+const NPM_NODE_SHIM = String.raw`@ECHO off
+GOTO start
+:find_dp0
+SET dp0=%~dp0
+EXIT /b
+:start
+SETLOCAL
+CALL :find_dp0
+
+IF EXIST "%dp0%\node.exe" (
+  SET "_prog=%dp0%\node.exe"
+) ELSE (
+  SET "_prog=node"
+  SET PATHEXT=%PATHEXT:;.JS;=;%
+)
+
+endLocal & goto #_undefined_# 2>NUL || title %COMSPEC% & "%_prog%"  "{{ENTRY}}" %*`;
+
+function resolveNpmNodeShim(scriptPath: string, args: string[]): SpawnTarget | null {
+  let body: string;
+  try {
+    body = readFileSync(scriptPath, "utf8").replace(/^\uFEFF/, "").replace(/\r\n/g, "\n").trimEnd();
+  } catch {
+    return null;
+  }
+  const entry = body.match(/"(%dp0%\\[^"\r\n]+)" %\*$/)?.[1];
+  if (!entry || body !== NPM_NODE_SHIM.replace("{{ENTRY}}", entry)) return null;
+  const relativeEntry = entry.slice(6);
+  if (!/\.(?:js|cjs|mjs)$/i.test(relativeEntry) || /[%!^&|<>()]/.test(relativeEntry)) return null;
+  const resolvedEntry = path.resolve(path.dirname(scriptPath), relativeEntry);
+  if (!fileExists(resolvedEntry)) return null;
+  const bundledNode = path.join(path.dirname(scriptPath), "node.exe");
+  return {
+    file: fileExists(bundledNode) ? bundledNode : process.execPath,
+    args: [resolvedEntry, ...args],
+  };
+}
+
 function quoteCmdMetaArg(arg: string): string {
-  if (!/[\s"]/u.test(arg)) return arg;
-  return `"${arg.replace(/"/g, '""')}"`;
+  if (arg && !/\s/u.test(arg)) return arg;
+  return `"${arg.replace(/(\\+)$/, "$1$1")}"`;
 }
 
 /**
@@ -105,6 +143,11 @@ export function wrapWindowsCmdInvocation(
   args: string[],
   env: Record<string, string>,
 ): SpawnTarget {
+  // Custom batch launchers can parse their argv again. Never guess an escaping
+  // scheme for arbitrary prompt text; standard npm Node shims avoid CMD above.
+  if ([scriptPath, ...args].some(arg => /[\x00-\x1f"%!^&|<>()]/u.test(arg))) {
+    throw new Error("Cannot safely pass shell-sensitive arguments through this Windows batch launcher. Use a native executable, a standard npm Node shim, or an advertised ACP transport.");
+  }
   const comspec = env.COMSPEC ?? process.env.COMSPEC ?? "cmd.exe";
   const inner = [scriptPath, ...args].map(quoteCmdMetaArg).join(" ");
   return {
@@ -132,6 +175,8 @@ export function resolveSpawnTarget(
 
   const ext = path.extname(resolved).toLowerCase();
   if (ext === ".cmd" || ext === ".bat") {
+    const nodeShim = resolveNpmNodeShim(resolved, args);
+    if (nodeShim) return nodeShim;
     return wrapWindowsCmdInvocation(resolved, args, env);
   }
 

@@ -2,6 +2,22 @@ export interface AcpIo {
   write(line: string): void;
   read(): Promise<string | null>;
   kill(): void;
+  diagnostics?(): string;
+}
+
+export type AcpPhase = "initialize" | "authenticate" | "session/new" | "session/prompt";
+
+export class AcpTurnError extends Error {
+  constructor(
+    public readonly code: "timeout" | "acp_protocol",
+    public readonly phase: AcpPhase,
+    message: string,
+    public readonly text: string,
+    public readonly deniedPermissions: number,
+  ) {
+    super(message);
+    this.name = "AcpTurnError";
+  }
 }
 
 export interface AcpTurnResult {
@@ -24,8 +40,15 @@ export function createLineQueue(): {
 } {
   const buffer: Array<string | null> = [];
   const waiters: Array<(line: string | null) => void> = [];
+  let closed = false;
   return {
     push(line) {
+      if (closed) return;
+      if (line === null) {
+        closed = true;
+        for (const waiter of waiters.splice(0)) waiter(null);
+        return;
+      }
       const waiter = waiters.shift();
       if (waiter) waiter(line);
       else buffer.push(line);
@@ -33,6 +56,7 @@ export function createLineQueue(): {
     read() {
       const next = buffer.shift();
       if (next !== undefined) return Promise.resolve(next);
+      if (closed) return Promise.resolve(null);
       return new Promise((resolve) => waiters.push(resolve));
     },
   };
@@ -54,55 +78,69 @@ function textFromUpdate(update: unknown): string {
 
 export async function runAcpTurn(
   io: AcpIo,
-  input: { cwd: string; prompt: string; timeoutMs: number },
+  input: { cwd: string; prompt: string; timeoutMs: number; authMethodIds?: string[] },
 ): Promise<AcpTurnResult> {
   let deniedPermissions = 0;
   let text = "";
   let nextId = 1;
+  let phase: AcpPhase = "initialize";
   const pending = new Map<number, (message: RpcMessage) => void>();
 
+  const failure = (code: "timeout" | "acp_protocol", message: string) =>
+    new AcpTurnError(code, phase, message, text, deniedPermissions);
+  let rejectPeer!: (error: Error) => void;
+  const peerFailure = new Promise<never>((_, reject) => { rejectPeer = reject; });
+
   const reader = (async () => {
-    for (;;) {
-      const line = await io.read();
-      if (line === null) return;
-      const trimmed = line.trim();
-      if (!trimmed) continue;
-      let message: RpcMessage;
-      try {
-        message = JSON.parse(trimmed) as RpcMessage;
-      } catch {
-        continue;
+    try {
+      for (;;) {
+        const line = await io.read();
+        if (line === null) {
+          rejectPeer(failure("acp_protocol", `ACP peer closed during ${phase}.`));
+          return;
+        }
+        const trimmed = line.trim();
+        if (!trimmed) continue;
+        let message: RpcMessage;
+        try {
+          message = JSON.parse(trimmed) as RpcMessage;
+        } catch {
+          continue;
+        }
+        if (message.method === "session/request_permission" && message.id !== undefined) {
+          deniedPermissions += 1;
+          io.write(
+            JSON.stringify({
+              jsonrpc: "2.0",
+              id: message.id,
+              result: { outcome: { outcome: "cancelled" } },
+            }),
+          );
+          continue;
+        }
+        if (message.method === "session/update") {
+          const params = message.params as { update?: unknown } | undefined;
+          text += textFromUpdate(params?.update ?? params);
+          continue;
+        }
+        if (message.id !== undefined && pending.has(message.id)) {
+          const resolve = pending.get(message.id);
+          pending.delete(message.id);
+          resolve?.(message);
+        }
       }
-      if (message.method === "session/request_permission" && message.id !== undefined) {
-        deniedPermissions += 1;
-        io.write(
-          JSON.stringify({
-            jsonrpc: "2.0",
-            id: message.id,
-            result: { outcome: { outcome: "cancelled" } },
-          }),
-        );
-        continue;
-      }
-      if (message.method === "session/update") {
-        const params = message.params as { update?: unknown } | undefined;
-        text += textFromUpdate(params?.update ?? params);
-        continue;
-      }
-      if (message.id !== undefined && pending.has(message.id)) {
-        const resolve = pending.get(message.id);
-        pending.delete(message.id);
-        resolve?.(message);
-      }
+    } catch {
+      rejectPeer(failure("acp_protocol", `ACP read failed during ${phase}.`));
     }
   })();
 
-  function request(method: string, params: unknown): Promise<unknown> {
+  function request(method: AcpPhase, params: unknown): Promise<unknown> {
+    phase = method;
     const id = nextId++;
     const result = new Promise((resolve, reject) => {
       pending.set(id, (message) => {
         if (message.error) {
-          reject(new Error("acp_protocol"));
+          reject(failure("acp_protocol", `ACP ${method} returned a protocol error.`));
           return;
         }
         resolve(message.result);
@@ -115,34 +153,46 @@ export async function runAcpTurn(
   let timer: NodeJS.Timeout | undefined;
   const timeout = new Promise<never>((_, reject) => {
     timer = setTimeout(() => {
+      reject(failure("timeout", `Command timed out after ${input.timeoutMs}ms during ACP ${phase}.`));
       io.kill();
-      reject(new Error("timeout"));
     }, input.timeoutMs);
   });
 
   const turn = (async () => {
-    await request("initialize", {
+    const initialized = await request("initialize", {
       protocolVersion: 1,
       clientCapabilities: {
         fs: { readTextFile: false, writeTextFile: false },
         terminal: false,
       },
       clientInfo: { name: "synthet-agent-swarm", version: "0.1.0" },
-    });
+    }) as { authMethods?: Array<{ id: string }> } | undefined;
+    if (input.authMethodIds && initialized?.authMethods?.length) {
+      const methodId = input.authMethodIds.find(id =>
+        initialized.authMethods!.some(method => method.id === id),
+      );
+      if (!methodId) {
+        throw failure("acp_protocol", "ACP initialize advertised no supported headless authentication method. Check the harness login.");
+      }
+      await request("authenticate", { methodId, _meta: { headless: true } });
+    }
     const created = (await request("session/new", {
       cwd: input.cwd,
       mcpServers: [],
     })) as { sessionId?: string } | undefined;
-    if (!created?.sessionId) throw new Error("acp_protocol");
-    await request("session/prompt", {
+    if (!created?.sessionId) throw failure("acp_protocol", "ACP session/new returned no sessionId.");
+    const response = await request("session/prompt", {
       sessionId: created.sessionId,
       prompt: [{ type: "text", text: input.prompt }],
-    });
+    }) as { stopReason?: string } | undefined;
+    if (response?.stopReason !== "end_turn") {
+      throw failure("acp_protocol", "ACP session/prompt did not complete with end_turn.");
+    }
     return { text, deniedPermissions };
   })();
 
   try {
-    return await Promise.race([turn, timeout]);
+    return await Promise.race([turn, timeout, peerFailure]);
   } finally {
     if (timer) clearTimeout(timer);
     io.kill();

@@ -45,7 +45,9 @@ export function extractLastJsonObject(
   for (let i = 0; i < text.length; i++) {
     if (text[i] !== "{") continue;
     const raw = balancedObject(text, i);
-    if (!raw) continue;
+    // A truncated outer object must not turn one of its inner rows into a vote.
+    if (!raw) break;
+    i += raw.length - 1;
     try {
       const data = JSON.parse(raw) as unknown;
       if (!data || typeof data !== "object" || Array.isArray(data)) continue;
@@ -59,21 +61,22 @@ export function extractLastJsonObject(
   return lastWithImages ?? last;
 }
 
-export function agreeVotes(replies: JudgeText[]): SwarmAgreement {
+export function agreeVotes(replies: JudgeText[], expectedIds?: readonly string[]): SwarmAgreement {
   const parsedAgents: string[] = [];
   const unparsedAgents: string[] = [];
-  const items: Record<string, ItemAgreement> = {};
+  const items: Record<string, ItemAgreement> = Object.create(null);
+  const expected = expectedIds ? new Set(expectedIds) : undefined;
 
   for (const reply of replies) {
     const obj = extractLastJsonObject(reply.text);
     const rows = obj ? rowsFrom(obj) : null;
-    if (!rows) {
+    if (!rows || (expected && (rows.length !== expected.size || rows.some(row => !expected.has(row.id))))) {
       unparsedAgents.push(reply.agent);
       continue;
     }
     parsedAgents.push(reply.agent);
     for (const row of rows) {
-      const item = items[row.id] ?? { votes: {}, fields: {} };
+      const item = items[row.id] ?? { votes: Object.create(null), fields: Object.create(null) };
       item.votes[reply.agent] = row.fields;
       items[row.id] = item;
     }
@@ -100,14 +103,17 @@ function rowsFrom(
 ): Array<{ id: string; fields: Record<string, string> }> | null {
   if (Array.isArray(obj.images)) {
     const rows: Array<{ id: string; fields: Record<string, string> }> = [];
+    const ids = new Set<string>();
     for (const row of obj.images) {
-      if (!row || typeof row !== "object" || Array.isArray(row)) continue;
+      if (!row || typeof row !== "object" || Array.isArray(row)) return null;
       const record = row as Record<string, unknown>;
       const id = rowId(record);
-      if (!id) continue;
-      rows.push({ id, fields: stringFields(record) });
+      const fields = stringFields(record);
+      if (!id || ids.has(id) || Object.keys(fields).length === 0) return null;
+      ids.add(id);
+      rows.push({ id, fields });
     }
-    return rows;
+    return rows.length > 0 ? rows : null;
   }
 
   const fields = stringFields(obj);
@@ -118,14 +124,14 @@ function rowsFrom(
 function rowId(row: Record<string, unknown>): string | null {
   for (const key of ID_KEYS) {
     const value = row[key];
-    if (value === undefined || value === null || value === "") continue;
-    return String(value);
+    if (typeof value === "string" && value.trim()) return value.trim();
+    if (typeof value === "number" && Number.isFinite(value)) return String(value);
   }
   return null;
 }
 
 function stringFields(row: Record<string, unknown>): Record<string, string> {
-  const fields: Record<string, string> = {};
+  const fields: Record<string, string> = Object.create(null);
   for (const [key, value] of Object.entries(row)) {
     if (ID_KEYS.has(key)) continue;
     if (typeof value === "string") {
@@ -141,14 +147,13 @@ function stringFields(row: Record<string, unknown>): Record<string, string> {
 }
 
 function agreeField(values: string[]): FieldAgreement {
-  const counts: Record<string, number> = {};
+  const counts: Record<string, number> = Object.create(null);
   for (const value of values) counts[value] = (counts[value] ?? 0) + 1;
   const ranked = Object.entries(counts).sort(
     (a, b) => b[1] - a[1] || a[0].localeCompare(b[0]),
   );
   const top = ranked[0];
-  const second = ranked[1];
-  const agreed = Boolean(top && top[1] >= 2 && (!second || top[1] > second[1]));
+  const agreed = Boolean(top && top[1] >= 2 && top[1] > values.length / 2);
   return {
     value: agreed ? top![0] : null,
     counts,

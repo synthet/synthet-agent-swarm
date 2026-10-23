@@ -1,6 +1,7 @@
-import { mkdirSync, writeFileSync } from "node:fs";
-import { join } from "node:path";
+import { mkdirSync, mkdtempSync, writeFileSync } from "node:fs";
+import { join, resolve } from "node:path";
 import { redactObject, redactSecrets } from "./redaction.js";
+import { isPathInsideWorkspace, PathSafetyError } from "./pathSafety.js";
 import type {
   OrchestratorConfig,
   SubagentRequest,
@@ -34,6 +35,15 @@ export function buildRunDirName(agent: string, task: string): string {
   return `${timestampSlug()}-${agent}-${slugify(task)}`;
 }
 
+function createRunDirectory(workspaceRoot: string, agent: string, task: string): string {
+  const root = resolve(workspaceRoot, ".agent-runs");
+  if (!isPathInsideWorkspace(workspaceRoot, root)) {
+    throw new PathSafetyError("Artifact root escapes the workspace boundary.");
+  }
+  mkdirSync(root, { recursive: true });
+  return mkdtempSync(join(root, `${buildRunDirName(agent, task)}-`));
+}
+
 export interface StoredRunPaths {
   runDir: string;
   stdoutFile: string;
@@ -52,9 +62,7 @@ export function storeRunResult(
 ): StoredRunPaths | null {
   if (!config.storeOutputs) return null;
 
-  const dirName = buildRunDirName(request.agent, request.task);
-  const runDir = join(workspaceRoot, ".agent-runs", dirName);
-  mkdirSync(runDir, { recursive: true });
+  const runDir = createRunDirectory(workspaceRoot, request.agent, request.task);
 
   const paths: StoredRunPaths = {
     runDir,
@@ -100,12 +108,7 @@ export function storePanelSummary(
   config: OrchestratorConfig,
 ): string | null {
   if (!config.storeOutputs) return null;
-  const runDir = join(
-    workspaceRoot,
-    ".agent-runs",
-    `${timestampSlug()}-panel-${slugify(task)}`,
-  );
-  mkdirSync(runDir, { recursive: true });
+  const runDir = createRunDirectory(workspaceRoot, "panel", task);
   writeFileSync(
     join(runDir, "panel.json"),
     JSON.stringify(redactObject(payload), null, 2),
@@ -121,12 +124,7 @@ export function storeSwarmSummary(
   config: OrchestratorConfig,
 ): string | null {
   if (!config.storeOutputs) return null;
-  const runDir = join(
-    workspaceRoot,
-    ".agent-runs",
-    `${timestampSlug()}-swarm-${slugify(task)}`,
-  );
-  mkdirSync(runDir, { recursive: true });
+  const runDir = createRunDirectory(workspaceRoot, "swarm", task);
   writeFileSync(
     join(runDir, "swarm.json"),
     JSON.stringify(redactObject(payload), null, 2),

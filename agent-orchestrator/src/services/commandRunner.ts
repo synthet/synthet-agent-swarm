@@ -20,6 +20,7 @@ const ENV_WHITELIST_EXACT = new Set([
   "ANTHROPIC_API_KEY",
   "GOOGLE_API_KEY",
   "GEMINI_API_KEY",
+  "XAI_API_KEY",
 ]);
 
 export function buildChildEnv(): Record<string, string> {
@@ -80,26 +81,43 @@ export async function runCommand(
   }
 
   const env = { ...buildChildEnv(), ...options.env };
-  const { file, args } = resolveSpawnTarget(command, argv.slice(1), env);
+  let target: ReturnType<typeof resolveSpawnTarget>;
+  try {
+    target = resolveSpawnTarget(command, argv.slice(1), env);
+  } catch (err) {
+    return { exitCode: null, stdout: "", stderr: "", timedOut: false,
+      error: err instanceof Error ? err.message : String(err) };
+  }
+  const { file, args } = target;
 
   return new Promise((resolvePromise) => {
     let stdout = "";
     let stderr = "";
     let timedOut = false;
+    let closed = false;
+    let forceKillTimer: NodeJS.Timeout | undefined;
+    let stdinError: string | undefined;
 
-    const child = spawnImpl(file, args, {
-      cwd,
-      env,
-      shell: false,
-      windowsHide: true,
-    });
+    let child: ReturnType<typeof spawn>;
+    try {
+      child = spawnImpl(file, args, {
+        cwd,
+        env,
+        shell: false,
+        windowsHide: true,
+      });
+    } catch (err) {
+      resolvePromise({ exitCode: null, stdout, stderr, timedOut: false,
+        error: err instanceof Error ? err.message : String(err) });
+      return;
+    }
 
     const timer = setTimeout(() => {
       timedOut = true;
-      child.kill("SIGTERM");
-      setTimeout(() => {
-        if (!child.killed) child.kill("SIGKILL");
+      forceKillTimer = setTimeout(() => {
+        if (!closed) child.kill("SIGKILL");
       }, 2000);
+      child.kill("SIGTERM");
     }, timeoutMs);
 
     child.stdout?.on("data", (chunk: Buffer | string) => {
@@ -110,7 +128,9 @@ export async function runCommand(
     });
 
     child.on("error", (err) => {
+      closed = true;
       clearTimeout(timer);
+      if (forceKillTimer) clearTimeout(forceKillTimer);
       resolvePromise({
         exitCode: null,
         stdout,
@@ -120,18 +140,27 @@ export async function runCommand(
       });
     });
 
-    // Finish stdin even for argv-based prompts; Codex uses stdin to avoid CMD quoting.
-    child.stdin?.end(options.stdin);
-
     child.on("close", (code) => {
+      closed = true;
       clearTimeout(timer);
+      if (forceKillTimer) clearTimeout(forceKillTimer);
       resolvePromise({
         exitCode: code,
         stdout,
         stderr,
         timedOut,
-        error: timedOut ? `Command timed out after ${timeoutMs}ms` : undefined,
+        error: timedOut ? `Command timed out after ${timeoutMs}ms` : stdinError,
       });
     });
+
+    // A provider can exit before reading the prompt. Handle EPIPE before writing
+    // so that a rejected prompt cannot crash the MCP process or count as a vote.
+    child.stdin?.on("error", (err) => { stdinError = `Failed to deliver stdin: ${err.message}`; });
+    try {
+      child.stdin?.end(options.stdin);
+    } catch (err) {
+      stdinError = `Failed to deliver stdin: ${err instanceof Error ? err.message : String(err)}`;
+      if (!closed) child.kill("SIGTERM");
+    }
   });
 }
