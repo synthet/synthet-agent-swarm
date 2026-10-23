@@ -6,6 +6,8 @@
 
 ### Fixed
 
+- Reject Grok's `agent.exe` alias when it is discovered under the Cursor harness, preventing duplicate-provider votes.
+
 - Require a true strict majority and exclude failed or timed-out harness output from voting.
 - Reject malformed, duplicate, incomplete, or unexpected manifest replies; report panels with no usable votes as failures.
 - Preserve repeated run artifacts and completed results when another harness or a summary write fails.
@@ -21,4 +23,3 @@
 - Custom Windows batch launchers reject shell-sensitive arguments. Use a native executable, supported npm Node shim, or advertised ACP transport.
 - Errors may now include `execution_failed` or `artifact_storage`; completed results remain available when summary storage fails.
 - Dry runs can execute version/help discovery probes. Live provider availability and image access still require separate verification.
-

@@ -32,6 +32,30 @@ function observation(
 
 const allowed = ["codex", "agy", "claude", "cursor", "gemini", "grok"];
 
+describe("harness identity", () => {
+  it("rejects Grok's agent alias as Cursor on both transports", () => {
+    const row = classifyObservation({
+      spec: spec("cursor"), cliOnPath: true, acpOnPath: true,
+      cliHelp: "Grok Build TUI\nUsage: grok [OPTIONS] [PROMPT] [COMMAND]\n  -p, --single <PROMPT>\n  --model <MODEL>",
+      version: "1.0.0",
+    });
+    expect(row.available).toBe(false);
+    expect(row.transports).toEqual([]);
+    expect(row.notes.join(" ")).toContain("Grok");
+    const plan = planSwarmRun({observations:[row],harnesses:["cursor"],allowed});
+    expect(plan.ok && plan.steps[0]?.kind).toBe("skip");
+  });
+
+  it("keeps Cursor when help explicitly identifies Cursor", () => {
+    const row = classifyObservation({
+      spec: spec("cursor"), cliOnPath: true, acpOnPath: true,
+      cliHelp: "Cursor Agent\nUsage: agent [options]\n -p, --print\n --model <MODEL>",
+      version: "1.0.0",
+    });
+    expect(row.transports).toEqual(["cli", "acp"]);
+  });
+});
+
 describe("resolveHarnessId", () => {
   it("resolves gemini to agy when the gemini row is not available", () => {
     const observations = [
