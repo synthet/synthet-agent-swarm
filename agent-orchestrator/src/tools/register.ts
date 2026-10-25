@@ -6,10 +6,12 @@ import { runJudgeSwarmInputSchema, runJudgeSwarmTool } from "./runJudgeSwarm.js"
 import { runSubagentInputSchema, runSubagentTool } from "./runSubagent.js";
 import { swarmSearch, swarmSearchInputSchema } from "./swarmSearch.js";
 import { invalidArguments, swarmRunInputSchema, swarmRunTool } from "./swarmRun.js";
+import { swarmDecideInputSchema, swarmDecideTool } from "./swarmDecide.js";
 
 export const TOOL_NAMES = [
   "swarm_search",
   "swarm_run",
+  "swarm_decide",
   "run_judge_panel",
   "detect_subagents",
   "run_subagent",
@@ -58,6 +60,22 @@ export function registerSwarmTools(server: McpServer): void {
       const parsed = swarmRunInputSchema.safeParse(input);
       if (!parsed.success) return textResult(invalidArguments(parsed.error.flatten()), true);
       const result = await swarmRunTool(parsed.data);
+      return textResult(result, !result.ok);
+    },
+  );
+
+  server.registerTool(
+    "swarm_decide",
+    {
+      description:
+        "Fast, zero-tool Jev-compatible structured decision engine (noul, choice, score) over lightweight flash coding models (Haiku 5.5, GPT-6 Luna, Composer 2.5, Gemini 3.8 Flash). Ideal for coin-flip permission adjudication and typed semantic routing.",
+      inputSchema: swarmDecideInputSchema.shape,
+      annotations: READ_ONLY,
+    },
+    async (input) => {
+      const parsed = swarmDecideInputSchema.safeParse(input);
+      if (!parsed.success) return textResult(invalidArguments(parsed.error.flatten()), true);
+      const result = await swarmDecideTool(parsed.data);
       return textResult(result, !result.ok);
     },
   );

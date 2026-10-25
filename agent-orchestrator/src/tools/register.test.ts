@@ -17,6 +17,7 @@ describe("tool contract", () => {
     expect(TOOL_NAMES).toEqual([
       "swarm_search",
       "swarm_run",
+      "swarm_decide",
       "run_judge_panel",
       "detect_subagents",
       "run_subagent",

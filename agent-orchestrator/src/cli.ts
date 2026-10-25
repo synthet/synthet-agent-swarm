@@ -8,14 +8,20 @@ import {
   runJudgeSwarmInputSchema,
   runJudgeSwarmTool,
 } from "./tools/runJudgeSwarm.js";
+import {
+  swarmDecideInputSchema,
+  swarmDecideTool,
+} from "./tools/swarmDecide.js";
 
 function printUsage(): void {
   console.error(`Usage:
   synthet-agent-swarm detect
+  synthet-agent-swarm decide --state <json> --questions <json> [--harnesses <h1,h2>] [--model <model>] [--timeout-ms <ms>] [--dry-run]
   synthet-agent-swarm run --agent <codex|antigravity|claude> --task "<task>" [options]
   synthet-agent-swarm swarm --task "<task>" [options]
 
 detect prints the swarm_search catalog.
+decide runs a zero-tool Jev-compatible structured decision over lightweight flash models.
 
 Options for run:
   --files <path>[,<path>...]
@@ -31,7 +37,7 @@ Options for swarm:
   --dry-run
   --extra-context <text>
 
-The swarm command is the legacy judge wrapper. New callers use the MCP tools swarm_search and swarm_run.
+The swarm command is the legacy judge wrapper. New callers use the MCP tools swarm_search, swarm_run, and swarm_decide.
 `);
 }
 
@@ -75,6 +81,30 @@ function parseRunArgs(args: string[]): Record<string, unknown> {
         out.agents = next?.split(",").map((agent) => agent.trim()).filter(Boolean);
         i++;
         break;
+      case "--harnesses":
+        out.harnesses = next?.split(",").map((h) => h.trim()).filter(Boolean);
+        i++;
+        break;
+      case "--model":
+        out.model = next;
+        i++;
+        break;
+      case "--state":
+        try {
+          out.state = next ? JSON.parse(next) : {};
+        } catch {
+          out.state = next;
+        }
+        i++;
+        break;
+      case "--questions":
+        try {
+          out.questions = next ? JSON.parse(next) : {};
+        } catch {
+          out.questions = null;
+        }
+        i++;
+        break;
       default:
         break;
     }
@@ -94,6 +124,21 @@ export async function runCli(argv: string[]): Promise<number> {
     const result = await swarmSearch();
     console.log(JSON.stringify(result, null, 2));
     return 0;
+  }
+
+  if (command === "decide") {
+    const raw = parseRunArgs(rest);
+    if (!raw.harnesses && raw.agent && typeof raw.agent === "string") {
+      raw.harnesses = [raw.agent];
+    }
+    const parsed = swarmDecideInputSchema.safeParse(raw);
+    if (!parsed.success) {
+      console.error(JSON.stringify({ ok: false, error: parsed.error.flatten() }, null, 2));
+      return 1;
+    }
+    const response = await swarmDecideTool(parsed.data);
+    console.log(JSON.stringify(response, null, 2));
+    return response.ok ? 0 : 1;
   }
 
   if (command === "run") {
