@@ -6,7 +6,7 @@ Votes are evidence. A field is agreed only when at least two judges share a stri
 
 Only successful harness results vote. Strict majority means more than half of valid answers to that item and field, with at least two identical votes; a 2–1–1 split is disputed. Failed stdout is retained as diagnostic evidence. Aliases resolving to the same harness launch it once.
 
-Registered tools: `swarm_search`, `swarm_run`, `run_judge_panel`, `detect_subagents`, `run_subagent`, `run_judge_swarm`.
+Registered tools: `swarm_search`, `swarm_run`, `swarm_decide`, `run_judge_panel`, `detect_subagents`, `run_subagent`, `run_judge_swarm`.
 
 ## swarm_search
 
@@ -84,6 +84,19 @@ Path validation checks both lexical and resolved filesystem locations, including
 On Windows, the supported standard npm Node shim is resolved directly to its existing JavaScript entry point. Custom batch launchers reject shell-sensitive arguments, including multiline prompts, rather than applying speculative escaping. Dry-run validates that local launch target without starting it. Discovery matches exact option names, not prefixes such as `--prompt-file` or `--model-route`.
 
 ACP errors identify the active phase (`initialize`, `authenticate`, `session/new`, or `session/prompt`). `timeoutMs` is one total deadline including startup and MCP initialization. Peer EOF fails promptly; bounded stderr diagnostics are saved in the run artifacts. Grok authenticates with an advertised headless method using an existing login or environment credential. Non-`end_turn` completions are failed runs.
+
+## swarm_decide
+
+Fast, zero-tool Jev-compatible structured decision engine (`noul`, `choice`, `score`) over lightweight flash coding models (`claude` $\to$ `haiku`, `codex` $\to$ `gpt-6-luna`, `cursor` $\to$ `composer-2.5`, `agy` $\to$ `gemini-3.8-flash-medium`, `grok` $\to$ `grok-build-0.1`).
+
+| Field | Role |
+|---|---|
+| `state` | JSON object or string to evaluate as untrusted data (automatically secret-redacted). |
+| `questions` | Map of question IDs to `{ type: "noul" \| "choice" \| "score", instructions?: string, criteria?: string[] \| Record<string, string> }`. |
+| `harnesses` | Optional array of harness IDs. Defaults to fastest available one-shot CLI harness; multiple harnesses run in parallel and aggregate probabilities. |
+| `model` | Optional model override (defaults to `"lightweight"` per-harness flash model). |
+| `timeoutMs` | Default 6000 ms. |
+| `dryRun` | Default false. |
 
 ## run_judge_panel
 
