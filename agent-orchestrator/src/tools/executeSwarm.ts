@@ -124,8 +124,13 @@ function commandArgv(
     request.mode === "judge"
       ? evidenceDirectories(request.workspaceRoot, request.files)
       : [];
+  // Blind file-only judges must not initialize unrelated user MCP servers.
+  // This reserved non-matching allowlist entry changes only the child invocation.
+  const geminiIsolation = plan.id === "gemini" && request.mode === "judge" &&
+    /(?:^|\s)--allowed-mcp-server-names(?=[\s,=]|$)/m.test(plan.observation.cliHelp)
+      ? ["--allowed-mcp-server-names", "__synthet_swarm_file_only__"] : [];
   if (plan.transport === "acp") {
-    return plan.observation.acpArgv ?? [];
+    return [...(plan.observation.acpArgv ?? []), ...geminiIsolation];
   }
   if (plan.id === "codex") {
     return buildCodexArgv(
@@ -145,7 +150,7 @@ function commandArgv(
   }
   const flag = plan.observation.promptFlag ?? "-p";
   const bin = plan.observation.spec.cliArgv?.[0] ?? plan.id;
-  return applyModel([bin, flag, prompt], plan.id, plan.model);
+  return applyModel([bin, ...geminiIsolation, flag, prompt], plan.id, plan.model);
 }
 
 async function runPlan(

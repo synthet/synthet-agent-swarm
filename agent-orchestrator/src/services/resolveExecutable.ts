@@ -82,8 +82,8 @@ export function resolveExecutableOnPath(
     return null;
   }
 
-  for (const ext of uniqueExtensions(env.PATHEXT)) {
-    for (const dir of pathDirs) {
+  for (const dir of pathDirs) {
+    for (const ext of uniqueExtensions(env.PATHEXT)) {
       const candidate = path.join(dir, command + ext);
       if (fileExists(candidate)) return candidate;
     }

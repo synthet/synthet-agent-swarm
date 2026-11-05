@@ -201,6 +201,28 @@ describe("applyModel", () => {
 });
 
 describe("classifyObservation", () => {
+  it.each([
+    ["  --acp  Starts ACP mode", "--acp"],
+    ["  --experimental-acp  Starts ACP mode", "--experimental-acp"],
+    ["  --experimental-acp  Deprecated\n  --acp  Starts ACP mode", "--acp"],
+  ])("uses Gemini's advertised ACP flag: %s", (cliHelp, flag) => {
+    const row = classifyObservation({
+      spec: spec("gemini"), cliOnPath: true, cliHelp,
+      version: "test", acpOnPath: false,
+    });
+    expect(row.acpArgv).toEqual(["gemini", flag]);
+    expect(row.transports).toContain("acp");
+  });
+
+  it("does not turn an incidental ACP mention into a Gemini subcommand", () => {
+    const row = classifyObservation({
+      spec: spec("gemini"), cliOnPath: true, cliHelp: "See the ACP documentation.",
+      version: "test", acpOnPath: false,
+    });
+    expect(row.acpArgv).toBeNull();
+    expect(row.transports).not.toContain("acp");
+  });
+
   it("does not infer prompt or model flags from longer option names", () => {
     const row = classifyObservation({
       spec: spec("agy"), cliOnPath: true,
