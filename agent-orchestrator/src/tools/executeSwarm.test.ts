@@ -32,6 +32,28 @@ const observations = HARNESS_SPECS.filter(spec => ["codex", "agy", "claude"].inc
   }));
 
 describe("failed harness vote eligibility", () => {
+  it.each(["cli", "acp"] as const)("isolates Gemini judge MCP startup over %s", async transport => {
+    const gemini = HARNESS_SPECS.find(spec => spec.id === "gemini")!;
+    const result = await executeSwarm({
+      task: "say ok", mode: "judge", harnesses: ["gemini"], dryRun: true, transport,
+      observations: [classifyObservation({ spec: gemini, cliOnPath: true,
+        cliHelp: "-p --acp --allowed-mcp-server-names <names>", version: "test", acpOnPath: false })],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.harnesses[0].commandPreview).toContain(
+      "--allowed-mcp-server-names __synthet_swarm_file_only__");
+  });
+
+  it("preserves Gemini review MCP configuration", async () => {
+    const gemini = HARNESS_SPECS.find(spec => spec.id === "gemini")!;
+    const result = await executeSwarm({
+      task: "say ok", mode: "review", harnesses: ["gemini"], dryRun: true, transport: "acp",
+      observations: [classifyObservation({ spec: gemini, cliOnPath: true,
+        cliHelp: "-p --acp --allowed-mcp-server-names <names>", version: "test", acpOnPath: false })],
+    });
+    expect(result.harnesses[0].commandPreview).not.toContain("--allowed-mcp-server-names");
+  });
+
   it("rejects an unsafe custom batch launch during dry-run without starting it", async () => {
     if (process.platform !== "win32") return;
     const root = mkdtempSync(join(tmpdir(), "swarm-dry-launch-"));
