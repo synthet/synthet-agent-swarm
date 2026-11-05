@@ -192,9 +192,14 @@ export function classifyObservation(input: {
     input.cliOnPath &&
     /\bacp\b/i.test(help)
   ) {
-    acp = true;
     const bin = input.spec.cliArgv?.[0] ?? input.spec.id;
-    acpArgv = [bin, "acp"];
+    // Gemini exposes a flag, not an "acp" positional prompt/subcommand.
+    const geminiFlag = /(?:^|\s)--acp(?=[\s,=]|$)/m.test(help) ? "--acp"
+      : /(?:^|\s)--experimental-acp(?=[\s,=]|$)/m.test(help) ? "--experimental-acp" : null;
+    if (input.spec.id !== "gemini" || geminiFlag) {
+      acp = true;
+      acpArgv = [bin, input.spec.id === "gemini" ? geminiFlag! : "acp"];
+    }
   }
 
   const transports: SwarmTransport[] = [];
