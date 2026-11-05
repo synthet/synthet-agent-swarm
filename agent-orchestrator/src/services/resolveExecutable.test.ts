@@ -89,6 +89,21 @@ describe("resolveExecutable", () => {
     },
   );
 
+  it("respects PATH directory precedence before extension priority", () => {
+    const first = makeBinDir({ "agent.cmd": "@echo Cursor" });
+    const later = makeBinDir({ "agent.exe": "Grok fixture" });
+    expect(resolveExecutableOnPath("agent", {
+      PATH: [first, later].join(path.delimiter), PATHEXT: ".EXE;.CMD",
+    })).toBe(path.join(first, "agent.cmd"));
+  });
+
+  it("keeps native executable priority within one PATH directory", () => {
+    const bin = makeBinDir({ "agent.cmd": "shim", "agent.exe": "native" });
+    expect(resolveExecutableOnPath("agent", {
+      PATH: bin, PATHEXT: ".EXE;.CMD",
+    })).toBe(path.join(bin, "agent.exe"));
+  });
+
   it("prefers .cmd over extensionless npm shim on Windows", () => {
     if (process.platform !== "win32") return;
 
