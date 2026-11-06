@@ -21,6 +21,7 @@ import {
   type SwarmRunResponse,
 } from "./executeSwarm.js";
 import type { JudgeSwarmResponse } from "./runJudgeSwarm.js";
+import { modelChainsSchema } from "./swarmRun.js";
 
 const itemId = z
   .string()
@@ -45,6 +46,7 @@ export const runJudgePanelInputSchema = z
       .optional(),
     harnesses: z.array(z.string().min(1).max(40)).max(12).optional(),
     model: z.string().min(1).max(200).optional(),
+    modelChains: modelChainsSchema.optional(),
     transport: z.enum(["auto", "cli", "acp"]).optional(),
     timeoutMs: z.number().int().positive().optional(),
     dryRun: z.boolean().optional().default(false),
@@ -195,6 +197,9 @@ function toJudgeSwarm(result: SwarmRunResponse, expectedIds: string[]): JudgeSwa
       summary: row.summary,
       error: row.error?.message,
       commandPreview: row.commandPreview,
+      model: row.model,
+      reportedModel: row.reportedModel,
+      attempts: row.attempts,
     })),
     agreement,
     note: agreement.note,

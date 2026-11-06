@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { classifyObservation, HARNESS_SPECS } from "../harness/registry.js";
 import { runSubagentForRequest } from "../runners/index.js";
-import { executeSwarm } from "./executeSwarm.js";
+import { executeSwarm, walkModelChain } from "./executeSwarm.js";
 import { runJudgePanelTool } from "./runJudgePanel.js";
 import { runJudgeSwarmTool } from "./runJudgeSwarm.js";
 import { spawnAcpProcess } from "../acp/spawn.js";
@@ -176,5 +176,117 @@ describe("failed harness vote eligibility", () => {
     });
     expect(wrongManifest.ok).toBe(false);
     expect(wrongManifest.stages.votes.items).toEqual({});
+  });
+});
+
+describe("model chains", () => {
+  const row = (ok: boolean, stdout = "answer") => ({ ok, stdout });
+
+  it("stops at the first model that answers", async () => {
+    const tried: string[] = [];
+    const { row: last, attempts } = await walkModelChain(["a", "b"], async model => {
+      tried.push(model);
+      return row(true);
+    });
+    expect(tried).toEqual(["a"]);
+    expect(last.ok).toBe(true);
+    expect(attempts).toHaveLength(1);
+  });
+
+  it("moves to the next model after a failed run", async () => {
+    const { row: last, attempts } = await walkModelChain(["a", "b", "c"], async model => row(model === "b"));
+    expect(attempts.map(attempt => attempt.ok)).toEqual([false, true]);
+    expect(last.ok).toBe(true);
+  });
+
+  it("treats an empty reply as a failed attempt", async () => {
+    const { attempts } = await walkModelChain(["a", "b"], async model => row(true, model === "a" ? "  " : "answer"));
+    expect(attempts).toHaveLength(2);
+  });
+
+  it("returns the last attempt when every model fails", async () => {
+    const { row: last, attempts } = await walkModelChain(["a", "b"], async () => row(false));
+    expect(attempts).toHaveLength(2);
+    expect(last.ok).toBe(false);
+  });
+
+  it("plans the first model of a chain and reports it on the row", async () => {
+    const result = await executeSwarm({
+      task: "say ok", harnesses: ["codex", "agy"], dryRun: true, observations,
+      modelChains: { codex: ["gpt-a", "gpt-b"], antigravity: ["gem-a"] },
+    });
+    expect(result.ok).toBe(true);
+    const byId = Object.fromEntries(result.harnesses.map(harness => [harness.id, harness]));
+    expect(byId.codex.model).toBe("gpt-a");
+    expect(byId.codex.commandPreview).toContain("gpt-a");
+    expect(byId.agy.model).toBe("gem-a");
+    expect(byId.agy.commandPreview).toContain("gem-a");
+  });
+
+  it("walks a live chain, keeps each attempt, and records the answering model", async () => {
+    vi.mocked(runSubagentForRequest).mockImplementation(async request => ({
+      agent: "codex", ok: request.model === "gpt-b", exitCode: request.model === "gpt-b" ? 0 : 1,
+      stdout: request.model === "gpt-b" ? "answer" : "", stderr: "", startedAt: "", finishedAt: "",
+      durationMs: 1, commandPreview: "codex", error: request.model === "gpt-b" ? undefined : "usage limit",
+    }));
+    const result = await executeSwarm({
+      task: "say ok", harnesses: ["codex"], observations,
+      modelChains: { codex: ["gpt-a", "gpt-b", "gpt-c"] },
+    });
+    const [harness] = result.harnesses;
+    expect(harness.ok).toBe(true);
+    expect(harness.model).toBe("gpt-b");
+    expect(harness.attempts).toMatchObject([
+      { model: "gpt-a", ok: false, error: "usage limit" },
+      { model: "gpt-b", ok: true },
+    ]);
+  });
+
+  it("passes the pinned model to ACP and records what the session reports", async () => {
+    const cursor = classifyObservation({
+      spec: HARNESS_SPECS.find(spec => spec.id === "cursor")!,
+      cliOnPath: true, cliHelp: "-p --model", version: "test", acpOnPath: true,
+    });
+    const messages: string[] = [];
+    const lines: string[] = [];
+    vi.mocked(spawnAcpProcess).mockReturnValue({
+      write(line) {
+        const message = JSON.parse(line);
+        messages.push(message.method);
+        const option = (value: string) => [{ id: "model", category: "model", currentValue: value, options: [
+          { value: "grok-4.7[fast=true]" }, { value: "composer-2.5[fast=true]" }] }];
+        const result = message.method === "session/new"
+          ? { sessionId: "s1", configOptions: option("composer-2.5[fast=true]") }
+          : message.method === "session/set_config_option"
+            ? { configOptions: option(message.params.value) }
+            : message.method === "session/prompt" ? { stopReason: "end_turn" } : { protocolVersion: 1 };
+        lines.push(JSON.stringify({ jsonrpc: "2.0", id: message.id, result }));
+      },
+      read: async () => {
+        while (lines.length === 0) await new Promise(resolve => setTimeout(resolve, 1));
+        return lines.shift() ?? null;
+      },
+      kill() {},
+    });
+    const result = await executeSwarm({
+      task: "say ok", harnesses: ["cursor"], observations: [cursor], modelChains: { agent: ["grok-4.7"] },
+    });
+    const [harness] = result.harnesses;
+    expect(harness.transport).toBe("acp");
+    expect(harness.model).toBe("grok-4.7");
+    expect(harness.reportedModel).toBe("grok-4.7[fast=true]");
+    expect(messages).toContain("session/set_config_option");
+  });
+
+  it("carries the model and attempts into panel receipts", async () => {
+    vi.mocked(runSubagentForRequest).mockResolvedValue({
+      agent: "codex", ok: true, exitCode: 0, stdout: '{"images":[]}', stderr: "", startedAt: "", finishedAt: "",
+      durationMs: 1, commandPreview: "codex",
+    });
+    const panel = await runJudgePanelTool({
+      task: "Choose", harnesses: ["codex"], items: [{ id: "a", files: [] }], blind: true, dryRun: false,
+      modelChains: { codex: ["gpt-a"] },
+    });
+    expect(panel.stages.run.judges[0]).toMatchObject({ model: "gpt-a", attempts: [{ model: "gpt-a", ok: true }] });
   });
 });

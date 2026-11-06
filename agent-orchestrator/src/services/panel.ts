@@ -94,6 +94,7 @@ export function panelSwarmInput(input: {
   agents?: Array<"codex" | "antigravity" | "claude">;
   harnesses?: string[];
   model?: string;
+  modelChains?: Record<string, string[]>;
   transport?: "auto" | "cli" | "acp";
   timeoutMs?: number;
   dryRun?: boolean;
@@ -104,6 +105,7 @@ export function panelSwarmInput(input: {
   files: string[];
   harnesses: string[];
   model?: string;
+  modelChains?: Record<string, string[]>;
   transport?: "auto" | "cli" | "acp";
   timeoutMs?: number;
   dryRun: boolean;
@@ -123,6 +125,7 @@ export function panelSwarmInput(input: {
     files: panelEvidenceFiles(input.items),
     harnesses,
     model: input.model,
+    modelChains: input.modelChains,
     transport: input.transport,
     timeoutMs: input.timeoutMs,
     dryRun: input.dryRun ?? false,
