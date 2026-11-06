@@ -35,6 +35,7 @@ import { redactSecrets } from "../services/redaction.js";
 import { agreeVotes, type SwarmAgreement } from "../services/votes.js";
 import { captureWorkspaceSnapshot } from "../services/workspaceSnapshot.js";
 import type {
+  ModelAttempt,
   OrchestratorConfig,
   SubagentMode,
   SubagentRequest,
@@ -47,6 +48,7 @@ export interface ExecuteSwarmInput {
   files?: string[];
   harnesses?: string[];
   model?: string;
+  modelChains?: Record<string, string[]>;
   transport?: TransportChoice;
   mode?: SubagentMode;
   timeoutMs?: number;
@@ -67,6 +69,9 @@ export interface HarnessRunRow {
   durationMs: number;
   error?: SwarmError;
   stdout: string;
+  model?: string;
+  reportedModel?: string;
+  attempts?: ModelAttempt[];
 }
 
 export interface SwarmRunResponse {
@@ -195,6 +200,7 @@ async function runPlan(
         cwd: request.workspaceRoot,
         prompt,
         timeoutMs: request.timeoutMs ?? config.defaultTimeoutMs,
+        model: plan.model,
         authMethodIds: plan.id === "grok"
           ? process.env.XAI_API_KEY ? ["xai.api_key", "cached_token"] : ["cached_token"]
           : undefined,
@@ -203,18 +209,24 @@ async function runPlan(
         turn.deniedPermissions > 0
           ? `Denied ${turn.deniedPermissions} ACP permission request(s).`
           : "";
-      return finalizeResult(plan.id, startedAt, commandPreview, {
-        exitCode: 0,
-        stdout: turn.text,
-        stderr: [io.diagnostics?.(), stderr].filter(Boolean).join("\n"),
-      });
+      const restoreWarning = turn.modelRestoreFailed
+        ? "Could not restore the ACP peer's previous default model."
+        : "";
+      return {
+        ...finalizeResult(plan.id, startedAt, commandPreview, {
+          exitCode: 0,
+          stdout: turn.text,
+          stderr: [io.diagnostics?.(), stderr, restoreWarning].filter(Boolean).join("\n"),
+        }),
+        reportedModel: turn.reportedModel,
+      };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return finalizeResult(plan.id, startedAt, commandPreview, {
         exitCode: null,
         stdout: err instanceof AcpTurnError ? err.text : "",
         stderr: io.diagnostics?.() ?? "",
-        error: err instanceof AcpTurnError ? message : "acp_protocol",
+        error: err instanceof AcpTurnError ? redactSecrets(message) : "acp_protocol",
         timedOut: err instanceof AcpTurnError && err.code === "timeout",
       });
     }
@@ -226,6 +238,20 @@ async function runPlan(
     timeoutMs: request.timeoutMs ?? config.defaultTimeoutMs,
   });
   return finalizeResult(plan.id, startedAt, commandPreview, run);
+}
+
+/** Try models in order until one answers. Scoring the answer stays with the caller. */
+export async function walkModelChain<T extends { ok: boolean; stdout: string }>(
+  models: string[],
+  attempt: (model: string) => Promise<T>,
+): Promise<{ row: T; attempts: T[] }> {
+  const attempts: T[] = [];
+  for (const model of models) {
+    const row = await attempt(model);
+    attempts.push(row);
+    if (row.ok && row.stdout.trim() !== "") break;
+  }
+  return { row: attempts[attempts.length - 1], attempts };
 }
 
 async function executeStep(
@@ -248,17 +274,44 @@ async function executeStep(
   }
 
   const prompt = await promptFor(step.plan);
-  const result = await runPlan(step.plan, request, config, prompt);
+  const chain = step.plan.models;
+  if (!chain) return runModel(step.plan, request, config, prompt);
+  const { row, attempts } = await walkModelChain(
+    request.dryRun ? chain.slice(0, 1) : chain,
+    (model) => runModel({ ...step.plan, model }, request, config, prompt),
+  );
+  return {
+    ...row,
+    attempts: attempts.map((attempt) => ({
+      model: attempt.model as string,
+      ok: attempt.ok,
+      error: attempt.error?.message,
+      outputDir: attempt.outputDir,
+      outputFile: attempt.outputFile,
+      durationMs: attempt.durationMs,
+    })),
+  };
+}
+
+async function runModel(
+  plan: RunnablePlan,
+  request: SubagentRequest,
+  config: OrchestratorConfig,
+  prompt: string,
+): Promise<HarnessRunRow> {
+  const result = { ...(await runPlan(plan, request, config, prompt)), model: plan.model };
   const stored = storeRunResult(
     request.workspaceRoot,
-    { ...request, agent: step.plan.id, model: step.plan.model },
+    { ...request, agent: plan.id, model: plan.model },
     result,
     config,
     result.prompt,
   );
   return {
-    id: step.plan.id,
-    transport: step.plan.transport,
+    id: plan.id,
+    transport: plan.transport,
+    model: plan.model,
+    reportedModel: result.reportedModel,
     ok: result.ok,
     summary: brief(result),
     outputDir: stored ? relativeOutputPath(request.workspaceRoot, stored.runDir) : undefined,
@@ -299,6 +352,7 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
     observations,
     harnesses: input.harnesses,
     model: input.model,
+    modelChains: input.modelChains,
     transport: input.transport,
     allowed: config.allowedAgents,
   });

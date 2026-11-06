@@ -150,8 +150,9 @@ describe("planSwarmRun", () => {
   });
 
   it("fails the whole call when a selected harness has no model flag", () => {
+    const cliOnly = { ...cursor, transports: ["cli" as const], cliMode: "print" as const };
     const plan = planSwarmRun({
-      observations: [agy, cursor],
+      observations: [agy, cliOnly],
       harnesses: ["agy", "cursor"],
       model: "gpt-5",
       allowed,
@@ -244,5 +245,70 @@ describe("classifyObservation", () => {
     });
     expect(row.transports).toEqual(["acp"]);
     expect(row.cliMode).toBeNull();
+  });
+});
+
+describe("model chains and retired harnesses", () => {
+  const allowedAll = ["codex", "agy", "cursor", "gemini"];
+  const row = (id: HarnessSpec["id"], cliHelp = "exec -p --model", acpOnPath = false) =>
+    classifyObservation({ spec: spec(id), cliOnPath: true, cliHelp, version: "test", acpOnPath });
+
+  it("resolves chain keys through harness aliases and starts on the first model", () => {
+    const plan = planSwarmRun({
+      observations: [row("agy"), row("cursor", "-p --model", true)],
+      harnesses: ["agy", "cursor"], allowed: allowedAll,
+      modelChains: { antigravity: ["gem-a", "gem-b"], agent: ["grok-a"] },
+    });
+    expect(plan.ok).toBe(true);
+    if (!plan.ok) return;
+    const runs = plan.steps.flatMap(step => step.kind === "run" ? [step.plan] : []);
+    expect(runs.map(run => [run.id, run.model, run.models])).toEqual([
+      ["agy", "gem-a", ["gem-a", "gem-b"]],
+      ["cursor", "grok-a", ["grok-a"]],
+    ]);
+  });
+
+  it("rejects model and modelChains together", () => {
+    const plan = planSwarmRun({
+      observations: [row("agy")], harnesses: ["agy"], allowed: allowedAll,
+      model: "gem-a", modelChains: { agy: ["gem-b"] },
+    });
+    expect(plan).toMatchObject({ ok: false, error: { code: "model_chain_invalid" } });
+  });
+
+  it("rejects a chain for a harness that is not in the run", () => {
+    const plan = planSwarmRun({
+      observations: [row("agy"), row("codex")], harnesses: ["agy"], allowed: allowedAll,
+      modelChains: { codex: ["gpt-a"] },
+    });
+    expect(plan).toMatchObject({ ok: false, error: { code: "model_chain_invalid" } });
+  });
+
+  it("uses ACP for Cursor under auto when a model is pinned, and the CLI otherwise", () => {
+    const cursor = row("cursor", "-p --model", true);
+    const pinned = planSwarmRun({
+      observations: [cursor], harnesses: ["cursor"], allowed: allowedAll, model: "grok-a",
+    });
+    const plain = planSwarmRun({ observations: [cursor], harnesses: ["cursor"], allowed: allowedAll });
+    expect(pinned).toMatchObject({ ok: true, steps: [{ kind: "run", plan: { transport: "acp" } }] });
+    expect(plain).toMatchObject({ ok: true, steps: [{ kind: "run", plan: { transport: "cli" } }] });
+  });
+
+  it("does not need a model flag on ACP, where the session pins the model", () => {
+    const cursor = row("cursor", "-p", true);
+    const plan = planSwarmRun({
+      observations: [cursor], harnesses: ["cursor"], allowed: allowedAll, model: "grok-a", transport: "acp",
+    });
+    expect(plan.ok).toBe(true);
+  });
+
+  it("leaves retired Gemini out of default runs but still runs it when named", () => {
+    const gemini = row("gemini", "-p --acp --model");
+    const defaults = planSwarmRun({ observations: [row("agy"), gemini], allowed: allowedAll });
+    expect(defaults).toMatchObject({ ok: true, steps: [{ kind: "run", plan: { id: "agy" } }] });
+    if (defaults.ok) expect(defaults.steps).toHaveLength(1);
+    const named = planSwarmRun({ observations: [gemini], harnesses: ["gemini"], allowed: allowedAll });
+    expect(named).toMatchObject({ ok: true, steps: [{ kind: "run", plan: { id: "gemini" } }] });
+    expect(gemini.notes.join(" ")).toMatch(/agy/);
   });
 });

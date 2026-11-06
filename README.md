@@ -2,7 +2,7 @@
 
 Local MCP server that runs the same read-only judgement on the harnesses that are installed, then reports strict-majority agreement. Ties stay disputed. Votes are evidence, not ground truth.
 
-Harnesses: Codex, Claude Code, Antigravity (`agy`), Cursor (`agent`), Gemini CLI, and Grok. Code review is `swarm_run` with `mode: "review"`. Blind labelling is `mode: "judge"` or [docs/judges-swarm.md](docs/judges-swarm.md). The as-built design is [docs/design.md](docs/design.md). The tool contract is [docs/api.md](docs/api.md).
+Harnesses: Codex, Claude Code, Antigravity (`agy`), Cursor (`agent`), and Grok. Gemini CLI is retired because Google refuses personal sign-in, so default runs skip it. Use `agy` for Gemini models. Code review is `swarm_run` with `mode: "review"`. Blind labelling is `mode: "judge"` or [docs/judges-swarm.md](docs/judges-swarm.md). The as-built design is [docs/design.md](docs/design.md). The tool contract is [docs/api.md](docs/api.md).
 
 Release notes: [CHANGELOG.md](CHANGELOG.md).
 
