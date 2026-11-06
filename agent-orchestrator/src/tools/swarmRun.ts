@@ -6,11 +6,17 @@ import {
   type ExecuteSwarmInput,
 } from "./executeSwarm.js";
 
+export const modelChainsSchema = z.record(
+  z.string().min(1).max(40),
+  z.array(z.string().min(1).max(200)).min(1).max(5),
+);
+
 export const swarmRunInputSchema = z.object({
   task: z.string().min(1).max(8000),
   files: z.array(z.string()).max(20).optional(),
   harnesses: z.array(z.string().min(1).max(40)).max(12).optional(),
   model: z.string().min(1).max(200).optional(),
+  modelChains: modelChainsSchema.optional(),
   transport: z.enum(["auto", "cli", "acp"]).optional(),
   mode: z
     .enum(["review", "implement", "explain", "test", "tie-breaker", "judge"])

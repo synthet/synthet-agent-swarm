@@ -45,6 +45,10 @@ export interface SubagentResult {
   outputDir?: string;
   error?: string;
   prompt?: string;
+  /** Model requested for this run. */
+  model?: string;
+  /** Model the ACP session confirmed. */
+  reportedModel?: string;
 }
 
 export interface AgentDetectionInfo {
@@ -73,6 +77,19 @@ export interface RunSubagentMcpResponse {
   summary: string;
   error?: string;
   commandPreview?: string;
+  model?: string;
+  reportedModel?: string;
+  attempts?: ModelAttempt[];
+}
+
+/** One model tried in a fallback chain. */
+export interface ModelAttempt {
+  model: string;
+  ok: boolean;
+  error?: string;
+  outputDir?: string;
+  outputFile?: string;
+  durationMs: number;
 }
 
 export interface OrchestratorConfig {

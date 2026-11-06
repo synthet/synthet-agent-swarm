@@ -171,3 +171,136 @@ describe("runAcpTurn", () => {
     await peer;
   });
 });
+
+function fakePeer(reply: (message: { method: string; params?: Record<string, unknown> }) => object) {
+  const queue = createLineQueue();
+  const calls: Array<{ method: string; params?: Record<string, unknown> }> = [];
+  const io: AcpIo = {
+    write(line) {
+      const message = JSON.parse(line);
+      calls.push({ method: message.method, params: message.params });
+      queue.push(JSON.stringify({ jsonrpc: "2.0", id: message.id, ...reply(message) }));
+    },
+    read: () => queue.read(),
+    kill: () => queue.push(null),
+  };
+  return { io, calls };
+}
+
+const modelOptions = (currentValue: string) => [{
+  id: "model", category: "model", currentValue,
+  options: [{ value: "grok-4.7[fast=true]" }, { value: "composer-2.5[fast=true]" }],
+}];
+
+function modelPeer(overrides: Record<string, object> = {}) {
+  let current = "grok-4.7[fast=true]";
+  return fakePeer(({ method, params }) => {
+    if (overrides[method]) return overrides[method];
+    if (method === "session/new") {
+      return { result: { sessionId: "s1", models: { currentModelId: current }, configOptions: modelOptions(current) } };
+    }
+    if (method === "session/set_config_option") {
+      current = params?.value as string;
+      return { result: { configOptions: modelOptions(current) } };
+    }
+    if (method === "session/prompt") return { result: { stopReason: "end_turn" } };
+    return { result: { protocolVersion: 1 } };
+  });
+}
+
+const turnInput = { cwd: "/work", prompt: "say ok", timeoutMs: 1000 };
+
+describe("runAcpTurn errors and models", () => {
+  it("keeps the peer's error code and message", async () => {
+    const { io } = modelPeer({
+      "session/new": { error: { code: -32000, message: "This client is no longer supported." } },
+    });
+    await expect(runAcpTurn(io, turnInput)).rejects.toMatchObject({
+      phase: "session/new",
+      message: expect.stringContaining("-32000: This client is no longer supported."),
+    });
+  });
+
+  it("reports the session's model when none was requested", async () => {
+    const { io, calls } = modelPeer();
+    const result = await runAcpTurn(io, turnInput);
+    expect(result.reportedModel).toBe("grok-4.7[fast=true]");
+    expect(calls.map(call => call.method)).not.toContain("session/set_config_option");
+  });
+
+  it("pins the model by base name and restores the previous default after the turn", async () => {
+    const { io, calls } = modelPeer();
+    const result = await runAcpTurn(io, { ...turnInput, model: "composer-2.5" });
+    expect(result.reportedModel).toBe("composer-2.5[fast=true]");
+    expect(calls.map(call => call.method)).toEqual([
+      "initialize", "session/new", "session/set_config_option", "session/prompt", "session/set_config_option",
+    ]);
+    expect(calls[2].params).toMatchObject({ sessionId: "s1", configId: "model", value: "composer-2.5[fast=true]" });
+    expect(calls[4].params).toMatchObject({ sessionId: "s1", configId: "model", value: "grok-4.7[fast=true]" });
+    expect(result.modelRestoreFailed).toBeUndefined();
+  });
+
+  it("changes nothing when the requested model is already current", async () => {
+    const { io, calls } = modelPeer();
+    const result = await runAcpTurn(io, { ...turnInput, model: "grok-4.7" });
+    expect(result.reportedModel).toBe("grok-4.7[fast=true]");
+    expect(calls.map(call => call.method)).not.toContain("session/set_config_option");
+  });
+
+  it("refuses a model the session does not offer, before any prompt", async () => {
+    const { io, calls } = modelPeer();
+    await expect(runAcpTurn(io, { ...turnInput, model: "gpt-9" })).rejects.toMatchObject({
+      message: expect.stringContaining("gpt-9"),
+    });
+    expect(calls.map(call => call.method)).not.toContain("session/prompt");
+  });
+
+  it("refuses to run when the session has no model option", async () => {
+    const { io, calls } = modelPeer({ "session/new": { result: { sessionId: "s1" } } });
+    await expect(runAcpTurn(io, { ...turnInput, model: "composer-2.5" })).rejects.toMatchObject({
+      message: expect.stringContaining("no model option"),
+    });
+    expect(calls.map(call => call.method)).not.toContain("session/prompt");
+  });
+
+  it("refuses to run when the peer does not confirm the model, and still restores", async () => {
+    const { io, calls } = modelPeer({
+      "session/set_config_option": { result: { configOptions: modelOptions("grok-4.7[fast=true]") } },
+    });
+    await expect(runAcpTurn(io, { ...turnInput, model: "composer-2.5" })).rejects.toMatchObject({
+      message: expect.stringContaining("composer-2.5[fast=true]"),
+    });
+    const methods = calls.map(call => call.method);
+    expect(methods).not.toContain("session/prompt");
+    expect(calls.at(-1)?.params).toMatchObject({ value: "grok-4.7[fast=true]" });
+  });
+
+  it("restores the default after a failed prompt", async () => {
+    const { io, calls } = modelPeer({ "session/prompt": { error: { code: -32603, message: "boom" } } });
+    await expect(runAcpTurn(io, { ...turnInput, model: "composer-2.5" })).rejects.toMatchObject({
+      phase: "session/prompt",
+    });
+    expect(calls.at(-1)).toMatchObject({
+      method: "session/set_config_option", params: { value: "grok-4.7[fast=true]" },
+    });
+  });
+
+  it("flags a failed restore", async () => {
+    let sets = 0;
+    const { io } = fakePeer(({ method, params }) => {
+      if (method === "session/new") {
+        return { result: { sessionId: "s1", configOptions: modelOptions("grok-4.7[fast=true]") } };
+      }
+      if (method === "session/set_config_option") {
+        sets += 1;
+        return sets === 1
+          ? { result: { configOptions: modelOptions(params?.value as string) } }
+          : { error: { code: -32603, message: "nope" } };
+      }
+      if (method === "session/prompt") return { result: { stopReason: "end_turn" } };
+      return { result: { protocolVersion: 1 } };
+    });
+    const result = await runAcpTurn(io, { ...turnInput, model: "composer-2.5" });
+    expect(result.modelRestoreFailed).toBe(true);
+  });
+});
