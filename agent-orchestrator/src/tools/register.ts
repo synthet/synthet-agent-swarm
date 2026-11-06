@@ -1,5 +1,4 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { z } from "zod";
 import { detectSubagents } from "./detectSubagents.js";
 import { runJudgePanelInputSchema, runJudgePanelTool } from "./runJudgePanel.js";
 import { runJudgeSwarmInputSchema, runJudgeSwarmTool } from "./runJudgeSwarm.js";
@@ -85,32 +84,7 @@ export function registerSwarmTools(server: McpServer): void {
     {
       description:
         "Validate a frozen manifest, run the read-only swarm, and return votes plus a text-only Jev state. Does not call Jev or render images. Blind panels reject extraContext. Votes are not ground truth.",
-      inputSchema: {
-        task: z.string().min(1).max(8000),
-        items: z
-          .array(
-            z.object({
-              id: z.string(),
-              files: z.array(z.string()).min(1).max(20),
-            }),
-          )
-          .min(1)
-          .max(20),
-        agents: z
-          .array(z.enum(["codex", "antigravity", "claude"]))
-          .min(1)
-          .max(3)
-          .optional(),
-        harnesses: z.array(z.string().min(1).max(40)).max(12).optional(),
-        model: z.string().min(1).max(200).optional(),
-        transport: z.enum(["auto", "cli", "acp"]).optional(),
-        timeoutMs: z.number().int().positive().optional(),
-        dryRun: z.boolean().optional(),
-        blind: z.boolean().optional(),
-        extraContext: z.string().max(4000).optional(),
-        rubric: z.string().max(200).optional(),
-        humanLabels: z.record(z.string(), z.record(z.string(), z.string())).optional(),
-      },
+      inputSchema: runJudgePanelInputSchema.innerType().shape,
       annotations: READ_ONLY,
     },
     async (input) => {
