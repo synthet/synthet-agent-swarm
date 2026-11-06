@@ -40,8 +40,9 @@ One task. Omit `harnesses` to run every allowed harness that has the resolved tr
 | `task` | Required. 1 to 8000 characters. |
 | `files` | Optional workspace-relative paths. At most 20. |
 | `harnesses` | Optional ids. `gemini` uses the gemini row when it is available, otherwise `agy`. `antigravity` is `agy`. `agent` is `cursor`. |
-| `model` | Optional. Sent only when every selected harness advertises `--model`. Otherwise the call fails with `model_unsupported` and runs nothing. |
-| `transport` | `auto` (default), `cli`, or `acp`. `auto` uses the one-shot CLI when detection found exec or print mode, otherwise ACP. |
+| `model` | Optional. CLI harnesses need `--model`; otherwise the call fails with `model_unsupported` and runs nothing. ACP harnesses pin it through the session's model option, and the run stops before any prompt if that fails. |
+| `modelChains` | Optional. Ordered models per harness, such as `{"claude": ["a", "b"]}`, at most 5 each. Keys accept aliases. Replaces `model`. Moves to the next model only when a run fails or returns nothing. It never reads the answer. |
+| `transport` | `auto` (default), `cli`, or `acp`. `auto` uses the one-shot CLI when detection found exec or print mode, otherwise ACP. Cursor uses ACP when a model is set, because its `--model` flag only rewrites a saved default. |
 | `mode` | `review` (default), `implement`, `explain`, `test`, `tie-breaker`, or `judge`. |
 | `timeoutMs` | Optional. Clamped to the configured range. |
 | `dryRun` | Default false. Omits `agreement` and does not start a generation. Uncached discovery can still execute CLI version/help probes. |
@@ -73,9 +74,9 @@ Preflight failure, before any harness starts:
 }
 ```
 
-Codes: `unknown_harness`, `harness_unavailable`, `model_unsupported`, `transport_unavailable`, `path_rejected`, `timeout`, `acp_protocol`, `invalid_arguments`, `execution_failed`, `artifact_storage`.
+Codes: `unknown_harness`, `harness_unavailable`, `model_unsupported`, `model_chain_invalid`, `transport_unavailable`, `path_rejected`, `timeout`, `acp_protocol`, `invalid_arguments`, `execution_failed`, `artifact_storage`.
 
-`unknown_harness` and `model_unsupported` fail the whole call. A missing transport or an ACP handshake failure is recorded on that harness and does not stop the others.
+`unknown_harness`, `model_unsupported` and `model_chain_invalid` fail the whole call. A missing transport or an ACP handshake failure is recorded on that harness and does not stop the others.
 
 An unexpected step exception is an `execution_failed` harness row; other rows are retained. If the swarm summary cannot be stored, the response is `ok: false` with `artifact_storage` and the collected rows. A panel-summary write failure likewise retains its stages and votes with an error.
 
@@ -83,7 +84,7 @@ Path validation checks both lexical and resolved filesystem locations, including
 
 On Windows, the supported standard npm Node shim is resolved directly to its existing JavaScript entry point. Custom batch launchers reject shell-sensitive arguments, including multiline prompts, rather than applying speculative escaping. Dry-run validates that local launch target without starting it. Discovery matches exact option names, not prefixes such as `--prompt-file` or `--model-route`.
 
-ACP errors identify the active phase (`initialize`, `authenticate`, `session/new`, or `session/prompt`). `timeoutMs` is one total deadline including startup and MCP initialization. Peer EOF fails promptly; bounded stderr diagnostics are saved in the run artifacts. Grok authenticates with an advertised headless method using an existing login or environment credential. Non-`end_turn` completions are failed runs.
+ACP errors identify the active phase (`initialize`, `authenticate`, `session/new`, `session/set_config_option`, or `session/prompt`) and keep the peer's error code and message. Setting a model can persist as the peer's default, so the client restores the old value after the turn and warns if it can't. Rows report `model`, `reportedModel` (what the session confirmed) and, for chains, `attempts`. `timeoutMs` is one total deadline including startup and MCP initialization. Peer EOF fails promptly; bounded stderr diagnostics are saved in the run artifacts. Grok authenticates with an advertised headless method using an existing login or environment credential. Non-`end_turn` completions are failed runs.
 
 ## swarm_decide
 
@@ -100,7 +101,7 @@ Fast, zero-tool Jev-compatible structured decision engine (`noul`, `choice`, `sc
 
 ## run_judge_panel
 
-Frozen manifest workflow. Adds optional `harnesses`, `model`, and `transport` to the existing item list. Blind is the default. Blind panels reject `extraContext`. Human labels are not shown to judges. The response always has `stages.jev.called: false` and `stages.rules.applied: false`. The text-only `stages.jev.state` is for the caller’s own `jev_system_one` call.
+Frozen manifest workflow. Adds optional `harnesses`, `model`, `modelChains`, and `transport` to the existing item list. Judges report `model`, `reportedModel` and `attempts`. Blind is the default. Blind panels reject `extraContext`. Human labels are not shown to judges. The response always has `stages.jev.called: false` and `stages.rules.applied: false`. The text-only `stages.jev.state` is for the caller’s own `jev_system_one` call.
 
 When `harnesses` is omitted, the panel runs `codex`, `agy`, and `claude` that the config allows. The legacy `agents` field still accepts `codex`, `antigravity`, and `claude`.
 

@@ -2,6 +2,21 @@
 
 ## [Unreleased]
 
+### Added
+
+- `modelChains` on `swarm_run` and `run_judge_panel`: ordered models per harness, moving on only when a run fails or returns nothing.
+- Run artifacts, rows and panel judges record `model`, `reportedModel` and `attempts`.
+
+### Changed
+
+- Gemini CLI is retired from default runs, because Google refuses personal sign-in. Naming it still runs it.
+- Cursor uses ACP under `auto` when a model is set.
+
+### Fixed
+
+- ACP errors keep the peer's code and message instead of a generic line.
+- ACP runs now apply the requested model through the session's model option, restore the previous default afterwards, and stop before any prompt if the model can't be confirmed. The model used to be dropped silently.
+
 ## [0.1.1] — 2026-10-22
 
 ### Fixed

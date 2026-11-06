@@ -11,6 +11,8 @@ export interface HarnessSpec {
   /** ACP argv. Null until help text shows an ACP mode. */
   acpArgv: string[] | null;
   notes: string[];
+  /** Left out of default runs. It still runs when named. */
+  retired?: boolean;
 }
 
 export interface HarnessObservation {
@@ -46,6 +48,7 @@ export interface SwarmError {
     | "unknown_harness"
     | "harness_unavailable"
     | "model_unsupported"
+    | "model_chain_invalid"
     | "transport_unavailable"
     | "path_rejected"
     | "timeout"
@@ -63,6 +66,8 @@ export interface RunnablePlan {
   id: HarnessId;
   transport: SwarmTransport;
   model?: string;
+  /** Ordered fallback chain. `model` is its first entry. */
+  models?: string[];
   observation: HarnessObservation;
 }
 
@@ -126,7 +131,9 @@ export const HARNESS_SPECS: HarnessSpec[] = [
     command: "gemini -p",
     cliArgv: ["gemini", "-p"],
     acpArgv: null,
+    retired: true,
     notes: [
+      "Retired: Google refuses personal sign-in for this CLI. Use agy, which offers Gemini models through --model.",
       "Separate from agy. Available only when the gemini binary has a print mode.",
     ],
   },
@@ -352,10 +359,39 @@ export function planSwarmRun(input: {
   observations: HarnessObservation[];
   harnesses?: string[];
   model?: string;
+  modelChains?: Record<string, string[]>;
   transport?: TransportChoice;
   allowed: string[];
 }): SwarmPlan {
   const transport = input.transport ?? "auto";
+  const chainEntries = Object.entries(input.modelChains ?? {});
+  if (input.model && chainEntries.length > 0) {
+    return {
+      ok: false,
+      error: swarmError(
+        "model_chain_invalid",
+        "Pass model or modelChains, not both.",
+        {},
+        ["Use modelChains with a one-item list to pin a single harness."],
+      ),
+    };
+  }
+  const chains = new Map<string, string[]>();
+  for (const [token, models] of chainEntries) {
+    const id = resolveHarnessId(token, input.observations);
+    if (id === null || chains.has(id)) {
+      return {
+        ok: false,
+        error: swarmError(
+          "model_chain_invalid",
+          `modelChains key ${token} is unknown or repeated.`,
+          { key: token },
+          ["Use one key per harness id from swarm_search."],
+        ),
+      };
+    }
+    chains.set(id, models);
+  }
   const allowed = new Set(
     input.allowed.map((agent) =>
       agent === "antigravity" || agent === "agy"
@@ -370,7 +406,7 @@ export function planSwarmRun(input: {
   let tokens = input.harnesses;
   if (!tokens || tokens.length === 0) {
     tokens = input.observations
-      .filter((row) => allowed.has(row.spec.id) && selectTransport(row, transport))
+      .filter((row) => allowed.has(row.spec.id) && !row.spec.retired && selectTransport(row, transport))
       .map((row) => row.spec.id);
     if (tokens.length === 0) {
       return {
@@ -434,7 +470,12 @@ export function planSwarmRun(input: {
       });
       continue;
     }
-    const chosen = selectTransport(observation, transport);
+    const chain = chains.get(item.id);
+    const pinned = chain?.[0] ?? input.model;
+    // Cursor's --model changes its saved default; only an ACP session pins a model for one run.
+    const chosen = transport === "auto" && pinned && item.id === "cursor" && observation.transports.includes("acp")
+      ? "acp"
+      : selectTransport(observation, transport);
     if (!chosen) {
       steps.push({
         kind: "skip",
@@ -458,14 +499,31 @@ export function planSwarmRun(input: {
       id: item.id,
       transport: chosen,
       observation,
-      model: input.model,
+      model: pinned,
+      models: chain,
     };
     runnable.push(plan);
     steps.push({ kind: "run", plan });
   }
 
-  if (input.model) {
-    const missing = runnable.filter((plan) => plan.observation.modelFlag === null);
+  const unmatched = [...chains.keys()].filter((id) => !seen.has(id));
+  if (unmatched.length > 0) {
+    return {
+      ok: false,
+      error: swarmError(
+        "model_chain_invalid",
+        `modelChains names harnesses outside this run: ${unmatched.join(", ")}.`,
+        { harnesses: unmatched },
+        ["Add them to harnesses, or remove their chains."],
+      ),
+    };
+  }
+
+  if (input.model || chains.size > 0) {
+    // An ACP session pins its model through session config, not a command flag.
+    const missing = runnable.filter(
+      (plan) => plan.model && plan.transport === "cli" && plan.observation.modelFlag === null,
+    );
     if (missing.length > 0) {
       const supported = input.observations
         .filter((row) => row.modelFlag)
