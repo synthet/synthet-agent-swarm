@@ -14,6 +14,7 @@
 
 ### Fixed
 
+- `run_judge_panel` publishes `modelChains`. Its MCP schema now comes from the validated one, so the two can't drift.
 - ACP errors keep the peer's code and message instead of a generic line.
 - ACP runs now apply the requested model through the session's model option, restore the previous default afterwards, and stop before any prompt if the model can't be confirmed. The model used to be dropped silently.
 
