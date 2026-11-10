@@ -10,6 +10,7 @@ export type AcpPhase =
   | "authenticate"
   | "session/new"
   | "session/load"
+  | "session/set_mode"
   | "session/set_config_option"
   | "session/prompt";
 
@@ -114,6 +115,41 @@ function resolveModelValue(requested: string, values: string[]): string | null {
   return matches.length === 1 ? matches[0] : null;
 }
 
+/**
+ * How to answer session/request_permission. Without a policy every request is cancelled (the
+ * original deny-all). With one, a tool call whose ACP kind is listed gets the peer's allow_once
+ * option; anything else gets reject_once, or cancelled when the peer offers no reject option.
+ */
+export interface AcpPermissionPolicy {
+  allowKinds: string[];
+}
+
+interface PermissionOption {
+  optionId?: unknown;
+  kind?: unknown;
+}
+
+export function permissionAnswer(
+  params: unknown,
+  policy: AcpPermissionPolicy | undefined,
+): { outcome: { outcome: "selected"; optionId: string } | { outcome: "cancelled" }; allowed: boolean } {
+  const cancelled = { outcome: { outcome: "cancelled" as const }, allowed: false };
+  if (!policy) return cancelled;
+  const record = (params ?? {}) as { toolCall?: { kind?: unknown }; options?: unknown };
+  const options = Array.isArray(record.options) ? (record.options as PermissionOption[]) : [];
+  const pick = (kind: string) => {
+    const option = options.find((row) => row?.kind === kind && typeof row.optionId === "string");
+    return option ? (option.optionId as string) : undefined;
+  };
+  const toolKind = record.toolCall?.kind;
+  if (typeof toolKind === "string" && policy.allowKinds.includes(toolKind)) {
+    const allow = pick("allow_once");
+    if (allow) return { outcome: { outcome: "selected", optionId: allow }, allowed: true };
+  }
+  const reject = pick("reject_once");
+  return reject ? { outcome: { outcome: "selected", optionId: reject }, allowed: false } : cancelled;
+}
+
 function textFromUpdate(update: unknown): string {
   if (!update || typeof update !== "object") return "";
   const record = update as {
@@ -138,6 +174,10 @@ export async function runAcpTurn(
     model?: string;
     /** Load this session with session/load instead of creating one. Needs the loadSession capability. */
     resumeSessionId?: string;
+    /** Answer permission requests by tool kind instead of cancelling them all. */
+    permissionPolicy?: AcpPermissionPolicy;
+    /** Switch the session to this mode (for example Cursor's "ask") before the prompt. */
+    modeId?: string;
   },
 ): Promise<AcpTurnResult> {
   let deniedPermissions = 0;
@@ -168,12 +208,13 @@ export async function runAcpTurn(
           continue;
         }
         if (message.method === "session/request_permission" && message.id !== undefined) {
-          deniedPermissions += 1;
+          const answer = permissionAnswer(message.params, input.permissionPolicy);
+          if (!answer.allowed) deniedPermissions += 1;
           io.write(
             JSON.stringify({
               jsonrpc: "2.0",
               id: message.id,
-              result: { outcome: { outcome: "cancelled" } },
+              result: { outcome: answer.outcome },
             }),
           );
           continue;
@@ -187,6 +228,16 @@ export async function runAcpTurn(
           const resolve = pending.get(message.id);
           pending.delete(message.id);
           resolve?.(message);
+          continue;
+        }
+        // Any other agent-to-client request, such as Cursor's blocking cursor/ask_question or
+        // cursor/create_plan, would otherwise wait forever. This client implements none of them.
+        if (message.method && message.id !== undefined) {
+          io.write(JSON.stringify({
+            jsonrpc: "2.0",
+            id: message.id,
+            error: { code: -32601, message: `Method not supported by this client: ${message.method}` },
+          }));
         }
       }
     } catch {
@@ -254,7 +305,12 @@ export async function runAcpTurn(
       }
       await request("authenticate", { methodId, _meta: { headless: true } });
     }
-    type SessionSetup = { sessionId?: string; models?: { currentModelId?: unknown }; configOptions?: unknown } | undefined;
+    type SessionSetup = {
+      sessionId?: string;
+      models?: { currentModelId?: unknown };
+      modes?: { availableModes?: Array<{ id?: unknown }> };
+      configOptions?: unknown;
+    } | undefined;
     let created: SessionSetup;
     if (input.resumeSessionId) {
       if (initialized?.agentCapabilities?.loadSession !== true) {
@@ -275,6 +331,13 @@ export async function runAcpTurn(
       })) as SessionSetup;
     }
     if (!created?.sessionId) throw failure("acp_protocol", "ACP session/new returned no sessionId.");
+    if (input.modeId) {
+      const modes = created.modes?.availableModes ?? [];
+      if (!modes.some((mode) => mode?.id === input.modeId)) {
+        throw failure("acp_protocol", `ACP session offers no ${input.modeId} mode.`);
+      }
+      await request("session/set_mode", { sessionId: created.sessionId, modeId: input.modeId });
+    }
     const currentModel = created.models?.currentModelId;
     let reportedModel = typeof currentModel === "string" ? currentModel : undefined;
     if (input.model) {

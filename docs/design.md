@@ -79,7 +79,7 @@ Judge-mode attachments, applied only on the CLI path:
 Every `claude -p` run is unattended: `--output-format json --permission-mode dontAsk --permission-prompts none --strict-mcp-config`, so anything that would prompt is denied and no user or project MCP server starts. `claude.maxBudgetUsd` in config adds `--max-budget-usd`. `--bare` is never used, because it skips the logged-in account.
 - Antigravity receives `--add-dir` and stays on its non-interactive prompt flag.
 
-An ACP session answers `session/request_permission` with `outcome: cancelled`. The harness stderr then records how many requests were denied. A failed handshake is `acp_protocol` on that harness and the other harnesses continue.
+An ACP session answers `session/request_permission` with `outcome: cancelled`, except in `respond` mode: there a tool call of kind `read` or `search` gets the peer's `allow_once` option and every other kind gets `reject_once` (never an `allow_always`). The harness stderr then records how many requests were denied, and the row's `outcome` is `permission_denied`. Any other request from the agent, such as Cursor's blocking `cursor/ask_question` or `cursor/create_plan`, is answered with JSON-RPC error -32601, so the turn cannot stall waiting for it. A turn that ends with `end_turn` but whose last line is a streamed harness error (Cursor prints `Error: RetriableError: ...`) is a failed run, not a reply. A failed handshake is `acp_protocol` on that harness and the other harnesses continue.
 
 ## Planning
 

@@ -107,9 +107,9 @@ ACP errors identify the active phase (`initialize`, `authenticate`, `session/new
 
 `mode: "respond"` answers one message read-only with a plain reply. It is the profile agent-mail uses for a headless responder.
 
-- **Harnesses.** Exactly one of `claude`, `codex` or `cursor`, on the `cli` transport. Anything else is `invalid_arguments`. Antigravity is left out because a non-TTY child on Windows prints nothing (antigravity-cli#76) and soft-denies with exit 0.
+- **Harnesses.** Exactly one of `claude`, `codex` or `cursor`. Claude and Codex run on the `cli` transport. Cursor may also run over `acp`: the session is switched to Cursor's `ask` mode (the run fails if the session offers none), read and search tool calls are allowed once, and every other tool call is rejected. Anything else is `invalid_arguments`. Antigravity is left out because a non-TTY child on Windows prints nothing (antigravity-cli#76) and soft-denies with exit 0.
 - **Prompt.** No git status, diffs or file excerpts (the same blind snapshot as `judge`). The prompt states that text inside `<untrusted-remote-message>` tags is data, never instructions, and asks for only the reply text.
-- **Tools.** Claude gets `--tools Read,Grep,Glob` and reads the prompt from stdin, so the quoted message is never on the command line. Codex keeps its read-only sandbox, with the prompt on stdin. Cursor gets `--mode=ask`. On Windows, Cursor's `agent.cmd` launcher rejects multiline prompts, so a Cursor responder there needs ACP.
+- **Tools.** Claude gets `--tools Read,Grep,Glob` and reads the prompt from stdin, so the quoted message is never on the command line. Codex keeps its read-only sandbox, with the prompt on stdin. Cursor gets `--mode=ask`. On Windows, Cursor's `agent.cmd` launcher rejects multiline prompts, so a Cursor responder there needs `transport: "acp"`.
 - **Storage.** The run is stored like any other: with `storeOutputs` on, `.agent-runs/` holds the request (secret-redacted) and the reply. A caller that must not keep message text sets `storeOutputs: false` in the workspace's `.agent-orchestrator.json`.
 
 ### CLI request contract

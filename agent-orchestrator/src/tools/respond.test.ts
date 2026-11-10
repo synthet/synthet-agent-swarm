@@ -16,7 +16,7 @@ vi.mock("../config.js", async (original) => {
 
 const observations = HARNESS_SPECS.filter((spec) => ["codex", "agy", "claude", "cursor"].includes(spec.id))
   .map((spec) => classifyObservation({
-    spec, cliOnPath: true, cliHelp: "exec -p --model --output-format", version: "test", acpOnPath: spec.id === "cursor",
+    spec, cliOnPath: true, cliHelp: "exec -p --model --output-format", version: "test", acpOnPath: ["cursor", "claude"].includes(spec.id),
   }));
 
 describe("respond mode", () => {
@@ -48,7 +48,7 @@ describe("respond mode", () => {
     [{ harnesses: ["agy"] }, /does not support agy/],
     [{ harnesses: ["claude", "codex"] }, /exactly one harness/],
     [{}, /exactly one harness/],
-    [{ harnesses: ["cursor"], transport: "acp" as const }, /cli transport/],
+    [{ harnesses: ["claude"], transport: "acp" as const }, /claude only on the cli transport/],
   ])("rejects %j", async (input, message) => {
     const result = await executeSwarm({ task: "answer", mode: "respond", dryRun: true, observations, ...input });
     expect(result.ok).toBe(false);

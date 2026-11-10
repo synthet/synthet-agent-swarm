@@ -147,6 +147,16 @@ export function parseHarnessOutput(format: OutputFormat | undefined, stdout: str
   }
 }
 
+/**
+ * Some ACP peers end a turn with end_turn after a backend failure and stream the error as the last
+ * line of the reply, as Cursor does with "Error: RetriableError: [aborted] read ECONNRESET".
+ * Returns that line so the turn counts as failed instead of a reply.
+ */
+export function trailingHarnessError(text: string): string | undefined {
+  const last = text.trimEnd().split(/\r?\n/).pop()?.trim() ?? "";
+  return /^Error: [A-Za-z]*Error\b.*$/.test(last) ? last.slice(0, 500) : undefined;
+}
+
 const AUTH_RE = /authentication required|not (?:logged|signed) in|please (?:log|sign) in|invalid api key|unauthori[sz]ed|\b401\b/i;
 const RATE_RE = /rate.?limit|too many requests|\b429\b|overloaded|quota exceeded/i;
 /** Antigravity prints a stderr notice when a tool needing approval is soft-denied and the run goes on. */
