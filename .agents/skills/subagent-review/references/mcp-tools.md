@@ -2,7 +2,7 @@
 
 Server display name: **synthet-agent-swarm**. The field contract is `docs/api.md` in the synthet-agent-swarm checkout.
 
-Tools are read-only. `swarm_search` lists harnesses. `swarm_run` runs one task. `run_judge_panel` runs a frozen manifest. The server does not call Jev or render images.
+Tools are read-only. `swarm_search` lists harnesses. `swarm_run` runs one task. `swarm_sessions` lists runs and sessions. `run_judge_panel` runs a frozen manifest. The server does not call Jev or render images.
 
 ## swarm_search
 
@@ -24,10 +24,14 @@ Each row has `id`, `title`, `command`, `available`, `transports`, `modelFlag`, a
 | `model` | no | Fails the whole call with `model_unsupported` when a selected harness has no `--model` flag |
 | `modelChains` | no | Ordered models per harness, such as `{"codex": ["a", "b"]}`. Replaces `model`. Moves on only when a run fails or returns nothing |
 | `transport` | no | `auto` (default), `cli`, or `acp` |
-| `mode` | no | `review` by default. `judge` is one blind vote |
+| `mode` | no | `review` by default. `judge` is one blind vote. `respond` is the read-only responder: exactly one of `claude`, `codex`, `cursor` |
 | `timeoutMs` | no | Clamped to the configured maximum |
 | `dryRun` | no | Does not spawn. Omits `agreement` |
 | `extraContext` | no | Max 4000 characters |
+| `budgetUsd` | no | Spend cap where supported (Claude `--max-budget-usd`). Max 20 |
+| `resume` | no | `{"sessionId": "..."}` from an earlier row. Exactly one harness; not in `judge` mode. Claude forks the session |
+
+Rows carry `outcome` (`ok`, `permission_denied`, `soft_denied`, `empty_output`, `auth_required`, `rate_limited`, `timeout`, `error`), `sessionId`, `costUsd` and `denials` when known.
 
 One harness omits `agreement`. Two or more include strict-majority agreement. `ok` is true when at least one harness succeeds.
 
@@ -55,6 +59,18 @@ Failure envelope:
   "harnesses": []
 }
 ```
+
+## swarm_sessions
+
+```json
+{ "limit": 10, "native": true }
+```
+
+Returns `active` and `recent` runs of this server, `stored` per-harness results under `.agent-runs/` with `sessionId` and `outcome`, and `native.claude` from `claude agents --json`. Cursor, Codex and Antigravity have no machine-readable listing; their `native` entry is a note. No prompts or replies are included.
+
+## CLI request contract
+
+`synthet-agent-swarm run --request <file.json|->` takes one `swarm_run` request as JSON, so no prompt is on the command line. It prints one JSON line: the `swarm_run` response plus `reply`. Exit 0 ok, 1 run failed, 2 invalid request.
 
 ## run_judge_panel
 
