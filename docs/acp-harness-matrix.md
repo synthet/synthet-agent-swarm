@@ -10,7 +10,7 @@ okf_version: 0.1
 
 # ACP harness matrix
 
-External research, archived on 2026-10-18 from `D:\Downloads\deep-research-report.md`. The unchanged source is [raw/deep-research-report-acp.md](raw/deep-research-report-acp.md). This page says what that report means for synthet-agent-swarm. It does not re-verify every vendor claim.
+External research, archived on 2026-10-18 from `<downloads>\deep-research-report.md`. The unchanged source is [raw/deep-research-report-acp.md](raw/deep-research-report-acp.md). This page says what that report means for synthet-agent-swarm. It does not re-verify every vendor claim.
 
 The Agent Client Protocol (ACP) is a JSON-RPC session between an editor and a coding agent. The report compares five harnesses. This server uses the one-shot CLI when help shows exec or print mode, and ACP otherwise when that command is already on PATH. It does not download adapters. An ACP `session/request_permission` is answered with a deny. See [judges-swarm.md](judges-swarm.md) and [api.md](api.md).
 

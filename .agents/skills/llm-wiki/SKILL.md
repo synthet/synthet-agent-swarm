@@ -14,7 +14,7 @@ risk_class: medium
 Use the installed `llmwiki` CLI or the `llmwiki-ro-core` MCP server. Do **not** edit
 `.llmwiki/wiki.db`, object files, or generated `wiki/pages/*.md` directly.
 
-Wiki root (this workstation): `D:\Projects\synthet-llm-wiki`
+Wiki root: `<wiki-root>` (your local synthet-llm-wiki checkout)
 
 ## Find and answer
 
@@ -25,15 +25,15 @@ Wiki root (this workstation): `D:\Projects\synthet-llm-wiki`
 CLI fallback:
 
 ```bash
-llmwiki --root "D:\Projects\synthet-llm-wiki" search "query" --json
-llmwiki --root "D:\Projects\synthet-llm-wiki" ask "question" --json
-llmwiki --root "D:\Projects\synthet-llm-wiki" sources --json
+llmwiki --root "<wiki-root>" search "query" --json
+llmwiki --root "<wiki-root>" ask "question" --json
+llmwiki --root "<wiki-root>" sources --json
 ```
 
 ## Ingest / compile / review
 
 Writes and review require elevated MCP flags (`--allow-writes` / `--allow-review`) or explicit CLI
 commands with the user's reviewer identity. Generated facts stay `candidate` until human review.
-After canonical changes: `llmwiki --root "D:\Projects\synthet-llm-wiki" validate` then `render`.
+After canonical changes: `llmwiki --root "<wiki-root>" validate` then `render`.
 
-Canonical skill and docs live in the wiki repo: `D:\Projects\synthet-llm-wiki` (`AGENTS.md`, `docs/schema.md`).
+Canonical skill and docs live in the wiki repo: `<wiki-root>` (`AGENTS.md`, `docs/schema.md`).
