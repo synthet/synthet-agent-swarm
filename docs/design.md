@@ -75,6 +75,8 @@ Judge-mode attachments, applied only on the CLI path:
 
 - Codex receives each image with `--image`, and `--cd` when help shows that flag.
 - Claude receives `--tools Read` and `--add-dir` for evidence directories, at most eight directories.
+
+Every `claude -p` run is unattended: `--output-format json --permission-mode dontAsk --permission-prompts none --strict-mcp-config`, so anything that would prompt is denied and no user or project MCP server starts. `claude.maxBudgetUsd` in config adds `--max-budget-usd`. `--bare` is never used, because it skips the logged-in account.
 - Antigravity receives `--add-dir` and stays on its non-interactive prompt flag.
 
 An ACP session answers `session/request_permission` with `outcome: cancelled`. The harness stderr then records how many requests were denied. A failed handshake is `acp_protocol` on that harness and the other harnesses continue.
@@ -135,6 +137,8 @@ A panel summary is stored at `.agent-runs/<timestamp>-panel-<slug>/panel.json`.
 Each harness writes `.agent-runs/<timestamp>-<id>-<slug>/` with `stdout.md`, `stderr.log`, `request.json`, and `result.json`. The swarm summary is `.agent-runs/<timestamp>-swarm-<slug>/swarm.json`. Slugs are lowercase, at most 40 characters. Stored text passes through redaction for common key, token, bearer, and private-key shapes. Prompts are stored only when `storePrompts` is true. The default is false. `storeOutputs: false` skips all of these files.
 
 Config merges in this order: code defaults, [agent-orchestrator/config.default.json](../agent-orchestrator/config.default.json), then `.agent-orchestrator.json` in the workspace root. A workspace `allowedAgents` list replaces the default. `antigravity` and `agy` count as the same harness, and `agent` counts as `cursor`. A file that names only `codex`, `antigravity`, and `claude` leaves out `cursor`, `gemini`, and `grok`.
+
+On timeout the runner stops the whole process tree, not only the direct child: `taskkill /PID <pid> /T /F` on Windows, and a signal to the child's process group elsewhere (children start detached). ACP peers are stopped the same way. `concurrency.perHarness`, default 2, caps concurrent runs of one harness inside one server process; further runs wait for a slot.
 
 Timeouts clamp to at least 1 second and at most `maxTimeoutMs`. The defaults are 300 seconds and 900 seconds. Detection uses `detectionTimeoutMs`, default 10 seconds. `codex.jsonOutput` adds `--json` only when that flag appears in Codex help. The default is true; the JSONL events are parsed into the reply text, thread id and usage (see `outcome` in [api.md](api.md)).
 

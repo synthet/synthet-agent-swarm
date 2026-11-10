@@ -10,5 +10,8 @@
   "detectionTimeoutMs": 10000,
   "codex": {
     "jsonOutput": true
+  },
+  "concurrency": {
+    "perHarness": 2
   }
 }

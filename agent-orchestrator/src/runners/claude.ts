@@ -38,9 +38,18 @@ export function buildClaudeArgv(
   prompt: string,
   addDirs: string[] = [],
   model?: string,
+  options: { maxBudgetUsd?: number } = {},
 ): string[] {
   // json carries result, session_id, total_cost_usd and permission_denials.
-  const argv = ["claude", "-p", prompt, "--output-format", "json"];
+  const argv = [
+    "claude", "-p", prompt, "--output-format", "json",
+    // Unattended: anything that would prompt is denied, and no user or project MCP server starts.
+    // Never --bare: it skips the logged-in account and needs ANTHROPIC_API_KEY.
+    "--permission-mode", "dontAsk", "--permission-prompts", "none", "--strict-mcp-config",
+  ];
+  if (options.maxBudgetUsd !== undefined) {
+    argv.push("--max-budget-usd", String(options.maxBudgetUsd));
+  }
   if (addDirs.length > 0) {
     argv.push("--tools", "Read");
     for (const dir of addDirs) argv.push("--add-dir", dir);
@@ -77,6 +86,7 @@ export async function runClaude(
       ? evidenceDirectories(request.workspaceRoot, request.files)
       : [],
     request.model,
+    { maxBudgetUsd: config.claude?.maxBudgetUsd },
   );
   const commandPreview = formatCommandPreview(argv);
 

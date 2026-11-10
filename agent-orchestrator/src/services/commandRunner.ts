@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import type { CommandRunOptions, CommandRunResult } from "../types.js";
+import { killProcessTree, treeSpawnOptions } from "./processTree.js";
 import { resolveSpawnTarget } from "./resolveExecutable.js";
 
 const ENV_WHITELIST_PREFIXES = ["LC_", "LANG"];
@@ -105,6 +106,7 @@ export async function runCommand(
         env,
         shell: false,
         windowsHide: true,
+        ...treeSpawnOptions(),
       });
     } catch (err) {
       resolvePromise({ exitCode: null, stdout, stderr, timedOut: false,
@@ -115,9 +117,9 @@ export async function runCommand(
     const timer = setTimeout(() => {
       timedOut = true;
       forceKillTimer = setTimeout(() => {
-        if (!closed) child.kill("SIGKILL");
+        if (!closed) killProcessTree(child, "SIGKILL");
       }, 2000);
-      child.kill("SIGTERM");
+      killProcessTree(child, "SIGTERM");
     }, timeoutMs);
 
     child.stdout?.on("data", (chunk: Buffer | string) => {

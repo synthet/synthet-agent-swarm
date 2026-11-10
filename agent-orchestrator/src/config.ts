@@ -17,6 +17,7 @@ const DEFAULT_CONFIG: OrchestratorConfig = {
   storePrompts: false,
   detectionTimeoutMs: 10000,
   codex: { jsonOutput: true },
+  concurrency: { perHarness: 2 },
 };
 
 function loadJsonFile(path: string): Partial<OrchestratorConfig> | null {
@@ -40,6 +41,8 @@ export function loadConfig(workspaceRoot: string): OrchestratorConfig {
     ...defaults,
     ...workspaceOverride,
     codex: { ...DEFAULT_CONFIG.codex, ...defaults.codex, ...workspaceOverride?.codex },
+    claude: { ...DEFAULT_CONFIG.claude, ...defaults.claude, ...workspaceOverride?.claude },
+    concurrency: { ...DEFAULT_CONFIG.concurrency, ...defaults.concurrency, ...workspaceOverride?.concurrency },
   };
 
   return merged;
