@@ -56,7 +56,22 @@ Success:
 { "ok": true, "dryRun": false, "harnesses": [], "agreement": {} }
 ```
 
-`harnesses[]` rows: `id`, `transport`, `ok`, `summary`, `outputDir`, `commandPreview`, `error`.
+`harnesses[]` rows: `id`, `transport`, `ok`, `summary`, `outputDir`, `commandPreview`, `error`, plus `outcome`, `sessionId`, `costUsd` and `denials` when known.
+
+`outcome` comes from the harness's own result payload, not the exit code alone:
+
+| `outcome` | `ok` | Meaning |
+|---|---|---|
+| `ok` | true | A reply arrived and nothing was reported denied. |
+| `permission_denied` | true | A reply arrived, but Claude or an ACP peer reported denied permission requests (`denials`). The reply may be incomplete. |
+| `soft_denied` | true | A reply arrived, but stderr shows an Antigravity-style soft-deny notice. The reply may be incomplete. |
+| `empty_output` | false | Exit 0 with no reply. On Windows, `agy` without a TTY prints nothing (antigravity-cli#76). |
+| `auth_required` | false | The harness asked for sign-in or rejected its key. |
+| `rate_limited` | false | The provider returned a rate-limit or overload error. |
+| `timeout` | false | The run hit `timeoutMs`. |
+| `error` | false | Any other failure, including a result payload that reports an error. |
+
+To get these fields, the CLI runners request structured output: `claude --output-format json`, `codex exec --json` (when `codex.jsonOutput` is true, the default, and help shows the flag), and `--output-format json` for `agy` and Cursor print mode when their help shows that flag. The parsed reply text replaces the raw JSON in `stdout.md` and in agreement input. `sessionId` is the Claude session, Codex thread, Cursor chat or Antigravity conversation id.
 
 Preflight failure, before any harness starts:
 
@@ -74,7 +89,7 @@ Preflight failure, before any harness starts:
 }
 ```
 
-Codes: `unknown_harness`, `harness_unavailable`, `model_unsupported`, `model_chain_invalid`, `transport_unavailable`, `path_rejected`, `timeout`, `acp_protocol`, `invalid_arguments`, `execution_failed`, `artifact_storage`.
+Codes: `unknown_harness`, `harness_unavailable`, `model_unsupported`, `model_chain_invalid`, `transport_unavailable`, `path_rejected`, `timeout`, `acp_protocol`, `invalid_arguments`, `execution_failed`, `artifact_storage`, `auth_required`, `rate_limited`, `empty_output`.
 
 `unknown_harness`, `model_unsupported` and `model_chain_invalid` fail the whole call. A missing transport or an ACP handshake failure is recorded on that harness and does not stop the others.
 

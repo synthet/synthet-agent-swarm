@@ -136,7 +136,7 @@ Each harness writes `.agent-runs/<timestamp>-<id>-<slug>/` with `stdout.md`, `st
 
 Config merges in this order: code defaults, [agent-orchestrator/config.default.json](../agent-orchestrator/config.default.json), then `.agent-orchestrator.json` in the workspace root. A workspace `allowedAgents` list replaces the default. `antigravity` and `agy` count as the same harness, and `agent` counts as `cursor`. A file that names only `codex`, `antigravity`, and `claude` leaves out `cursor`, `gemini`, and `grok`.
 
-Timeouts clamp to at least 1 second and at most `maxTimeoutMs`. The defaults are 300 seconds and 900 seconds. Detection uses `detectionTimeoutMs`, default 10 seconds. `codex.jsonOutput` adds `--json` only when that flag appears in Codex help. The default is false.
+Timeouts clamp to at least 1 second and at most `maxTimeoutMs`. The defaults are 300 seconds and 900 seconds. Detection uses `detectionTimeoutMs`, default 10 seconds. `codex.jsonOutput` adds `--json` only when that flag appears in Codex help. The default is true; the JSONL events are parsed into the reply text, thread id and usage (see `outcome` in [api.md](api.md)).
 
 ## Compatibility
 

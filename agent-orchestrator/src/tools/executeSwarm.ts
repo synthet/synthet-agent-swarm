@@ -4,6 +4,7 @@ import { clampTimeout, getWorkspaceRoot, loadConfig } from "../config.js";
 import { detectionFromObservation, observeHarnesses } from "../harness/observe.js";
 import {
   applyModel,
+  helpHasFlag,
   planSwarmRun,
   swarmError,
   type HarnessObservation,
@@ -34,6 +35,7 @@ import {
 import { redactSecrets } from "../services/redaction.js";
 import { agreeVotes, type SwarmAgreement } from "../services/votes.js";
 import { captureWorkspaceSnapshot } from "../services/workspaceSnapshot.js";
+import type { OutputFormat, RunOutcome } from "../services/eventParse.js";
 import type {
   ModelAttempt,
   OrchestratorConfig,
@@ -72,6 +74,10 @@ export interface HarnessRunRow {
   model?: string;
   reportedModel?: string;
   attempts?: ModelAttempt[];
+  outcome?: RunOutcome;
+  sessionId?: string;
+  costUsd?: number;
+  denials?: number;
 }
 
 export interface SwarmRunResponse {
@@ -94,6 +100,21 @@ function brief(result: SubagentResult): string {
 function runtimeError(result: SubagentResult): SwarmError | undefined {
   if (result.ok) return undefined;
   const message = result.error ?? "Harness failed.";
+  if (result.outcome === "auth_required") {
+    return swarmError("auth_required", message, { harness: result.agent }, [
+      "Sign the harness in on this host, or set its API key in the environment, then retry.",
+    ]);
+  }
+  if (result.outcome === "rate_limited") {
+    return swarmError("rate_limited", message, { harness: result.agent }, [
+      "Wait for the provider's rate limit to reset, or use another harness.",
+    ], true);
+  }
+  if (result.outcome === "empty_output") {
+    return swarmError("empty_output", message, { harness: result.agent }, [
+      "The process exited 0 without a reply. On Windows, agy prints nothing without a TTY (antigravity-cli#76); use another harness or its ACP transport.",
+    ]);
+  }
   if (/timed out/i.test(message) || message === "timeout") {
     return swarmError(
       "timeout",
@@ -155,7 +176,23 @@ function commandArgv(
   }
   const flag = plan.observation.promptFlag ?? "-p";
   const bin = plan.observation.spec.cliArgv?.[0] ?? plan.id;
-  return applyModel([bin, ...geminiIsolation, flag, prompt], plan.id, plan.model);
+  return applyModel(
+    [bin, ...geminiIsolation, flag, prompt, ...cursorJson(plan)],
+    plan.id,
+    plan.model,
+  );
+}
+
+function cursorJson(plan: RunnablePlan): string[] {
+  return plan.id === "cursor" && helpHasFlag(plan.observation.cliHelp, "--output-format")
+    ? ["--output-format", "json"]
+    : [];
+}
+
+function genericFormat(plan: RunnablePlan, argv: string[]): OutputFormat | undefined {
+  return plan.transport === "cli" && plan.id === "cursor" && argv.includes("--output-format")
+    ? "cursor-json"
+    : undefined;
 }
 
 async function runPlan(
@@ -212,14 +249,16 @@ async function runPlan(
       const restoreWarning = turn.modelRestoreFailed
         ? "Could not restore the ACP peer's previous default model."
         : "";
-      return {
-        ...finalizeResult(plan.id, startedAt, commandPreview, {
-          exitCode: 0,
-          stdout: turn.text,
-          stderr: [io.diagnostics?.(), stderr, restoreWarning].filter(Boolean).join("\n"),
-        }),
-        reportedModel: turn.reportedModel,
-      };
+      const result = finalizeResult(plan.id, startedAt, commandPreview, {
+        exitCode: 0,
+        stdout: turn.text,
+        stderr: [io.diagnostics?.(), stderr, restoreWarning].filter(Boolean).join("\n"),
+      });
+      if (turn.deniedPermissions > 0) {
+        result.denials = turn.deniedPermissions;
+        if (result.outcome === "ok") result.outcome = "permission_denied";
+      }
+      return { ...result, reportedModel: turn.reportedModel };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return finalizeResult(plan.id, startedAt, commandPreview, {
@@ -237,7 +276,7 @@ async function runPlan(
     cwd: request.workspaceRoot,
     timeoutMs: request.timeoutMs ?? config.defaultTimeoutMs,
   });
-  return finalizeResult(plan.id, startedAt, commandPreview, run);
+  return finalizeResult(plan.id, startedAt, commandPreview, run, genericFormat(plan, argv));
 }
 
 /** Try models in order until one answers. Scoring the answer stays with the caller. */
@@ -321,6 +360,10 @@ async function runModel(
     durationMs: result.durationMs,
     error: runtimeError(result),
     stdout: result.stdout,
+    outcome: result.outcome,
+    sessionId: result.sessionId,
+    costUsd: result.costUsd,
+    denials: result.denials,
   };
 }
 

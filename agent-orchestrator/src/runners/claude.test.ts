@@ -4,7 +4,7 @@ import { buildClaudeArgv } from "./claude.js";
 describe("buildClaudeArgv", () => {
   it("uses claude -p with the prompt as the next argv", () => {
     const argv = buildClaudeArgv("hello world");
-    expect(argv).toEqual(["claude", "-p", "hello world"]);
+    expect(argv).toEqual(["claude", "-p", "hello world", "--output-format", "json"]);
   });
 
   it("adds Read and evidence directories for a judge call", () => {
@@ -13,6 +13,8 @@ describe("buildClaudeArgv", () => {
       "claude",
       "-p",
       "hello world",
+      "--output-format",
+      "json",
       "--tools",
       "Read",
       "--add-dir",
