@@ -38,7 +38,7 @@ export function buildClaudeArgv(
   prompt: string,
   addDirs: string[] = [],
   model?: string,
-  options: { maxBudgetUsd?: number } = {},
+  options: { maxBudgetUsd?: number; resumeSessionId?: string } = {},
 ): string[] {
   // json carries result, session_id, total_cost_usd and permission_denials.
   const argv = [
@@ -49,6 +49,10 @@ export function buildClaudeArgv(
   ];
   if (options.maxBudgetUsd !== undefined) {
     argv.push("--max-budget-usd", String(options.maxBudgetUsd));
+  }
+  if (options.resumeSessionId) {
+    // Fork: a worker never writes into the transcript of a session that may still be live (ADR 0003).
+    argv.push("--resume", options.resumeSessionId, "--fork-session");
   }
   if (addDirs.length > 0) {
     argv.push("--tools", "Read");
@@ -86,7 +90,7 @@ export async function runClaude(
       ? evidenceDirectories(request.workspaceRoot, request.files)
       : [],
     request.model,
-    { maxBudgetUsd: config.claude?.maxBudgetUsd },
+    { maxBudgetUsd: config.claude?.maxBudgetUsd, resumeSessionId: request.resumeSessionId },
   );
   const commandPreview = formatCommandPreview(argv);
 

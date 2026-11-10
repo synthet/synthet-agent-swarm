@@ -290,3 +290,26 @@ describe("model chains", () => {
     expect(panel.stages.run.judges[0]).toMatchObject({ model: "gpt-a", attempts: [{ model: "gpt-a", ok: true }] });
   });
 });
+
+describe("resume", () => {
+  it("rejects resume across more than one harness, in judge mode, or with model chains", async () => {
+    for (const input of [
+      { harnesses: ["claude", "codex"] },
+      { harnesses: ["claude"], mode: "judge" as const },
+      { harnesses: ["claude"], modelChains: { claude: ["a"] } },
+      {},
+    ]) {
+      const result = await executeSwarm({ task: "continue", dryRun: true, resumeSessionId: "s-1", ...input });
+      expect(result.ok, JSON.stringify(input)).toBe(false);
+      expect(result.error?.code).toBe("invalid_arguments");
+    }
+  });
+
+  it("passes the session to the one selected harness", async () => {
+    const result = await executeSwarm({
+      task: "continue", dryRun: true, harnesses: ["claude"], resumeSessionId: "s-1",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.harnesses[0].commandPreview).toContain("--resume s-1 --fork-session");
+  });
+});

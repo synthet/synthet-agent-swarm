@@ -6,7 +6,7 @@ Votes are evidence. A field is agreed only when at least two judges share a stri
 
 Only successful harness results vote. Strict majority means more than half of valid answers to that item and field, with at least two identical votes; a 2–1–1 split is disputed. Failed stdout is retained as diagnostic evidence. Aliases resolving to the same harness launch it once.
 
-Registered tools: `swarm_search`, `swarm_run`, `swarm_decide`, `run_judge_panel`, `detect_subagents`, `run_subagent`, `run_judge_swarm`.
+Registered tools: `swarm_search`, `swarm_run`, `swarm_decide`, `swarm_sessions`, `run_judge_panel`, `detect_subagents`, `run_subagent`, `run_judge_swarm`.
 
 ## swarm_search
 
@@ -47,6 +47,7 @@ One task. Omit `harnesses` to run every allowed harness that has the resolved tr
 | `timeoutMs` | Optional. Clamped to the configured range. |
 | `dryRun` | Default false. Omits `agreement` and does not start a generation. Uncached discovery can still execute CLI version/help probes. |
 | `extraContext` | Optional. Up to 4000 characters. Blind judge panels reject it. |
+| `resume` | Optional `{ "sessionId": "..." }` from an earlier row's `sessionId`. Needs exactly one harness, no `modelChains`, and a mode other than `judge`; otherwise `invalid_arguments`. Claude gets `--resume <id> --fork-session`, so the run forks the session and never writes into its transcript; the row's `sessionId` is the fork. Codex gets `exec resume <id>` with `-c sandbox_mode=read-only`, because `exec resume` has no `--sandbox` flag. Cursor gets `--resume <id>`, Antigravity `--conversation <id>`. Over ACP the peer must advertise `loadSession`; `session/load` replays history, and only the new turn's text is kept. The Gemini CLI runner has no resume. |
 
 One harness returns one result and omits `agreement`. Two or more run in parallel and include strict-majority agreement. `ok` is true when at least one harness succeeds. A dry run is `ok` only when every selected harness can be previewed.
 
@@ -99,7 +100,24 @@ Path validation checks both lexical and resolved filesystem locations, including
 
 On Windows, the supported standard npm Node shim is resolved directly to its existing JavaScript entry point. Custom batch launchers reject shell-sensitive arguments, including multiline prompts, rather than applying speculative escaping. Dry-run validates that local launch target without starting it. Discovery matches exact option names, not prefixes such as `--prompt-file` or `--model-route`.
 
-ACP errors identify the active phase (`initialize`, `authenticate`, `session/new`, `session/set_config_option`, or `session/prompt`) and keep the peer's error code and message. Setting a model can persist as the peer's default, so the client restores the old value after the turn and warns if it can't. Rows report `model`, `reportedModel` (what the session confirmed) and, for chains, `attempts`. `timeoutMs` is one total deadline including startup and MCP initialization. Peer EOF fails promptly; bounded stderr diagnostics are saved in the run artifacts. Grok authenticates with an advertised headless method using an existing login or environment credential. Non-`end_turn` completions are failed runs.
+ACP errors identify the active phase (`initialize`, `authenticate`, `session/new`, `session/load`, `session/set_config_option`, or `session/prompt`) and keep the peer's error code and message. Setting a model can persist as the peer's default, so the client restores the old value after the turn and warns if it can't. Rows report `model`, `reportedModel` (what the session confirmed) and, for chains, `attempts`. `timeoutMs` is one total deadline including startup and MCP initialization. Peer EOF fails promptly; bounded stderr diagnostics are saved in the run artifacts. Grok authenticates with an advertised headless method using an existing login or environment credential. Non-`end_turn` completions are failed runs.
+
+## swarm_sessions
+
+Lists runs and sessions. It contains no prompts or replies.
+
+| Field | Role |
+|---|---|
+| `limit` | 1 to 50, default 20. Applies to `recent` and `stored`. |
+| `native` | Default true. Also lists the harnesses' own sessions where a machine-readable listing exists. |
+
+| Response field | Content |
+|---|---|
+| `active` | Runs this server process has in flight: `runId`, `harness`, `transport`, `model`, `startedAt`. A run waiting for a `concurrency.perHarness` slot is not listed yet. |
+| `recent` | This process's finished runs, newest first, with `ok`, `outcome` and `sessionId`. Lost on restart. |
+| `stored` | Per-harness `result.json` files under `.agent-runs/`, newest first, with `outcome`, `sessionId` and `outputDir`. Covers runs from other processes, such as CLI calls. |
+| `native.claude` | `claude agents --json`: `sessionId`, `name`, `cwd`, `kind`, `status`, `pid`, `startedAt`, or an `error`. |
+| `native.cursor`, `native.codex`, `native.agy` | A `note`: Cursor's `agent ls` is an interactive picker, and Codex and Antigravity have no listing command. |
 
 ## swarm_decide
 

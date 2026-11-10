@@ -72,3 +72,14 @@ describe("buildCodexArgv", () => {
     expect(argv.join(" ")).not.toContain("dangerously");
   });
 });
+
+describe("buildCodexArgv resume", () => {
+  it("resumes the thread read-only with the prompt on stdin", () => {
+    const argv = buildCodexArgv("task", "/repo", detection, { ...config, codex: { jsonOutput: true } }, [], "m1", "0199-thread");
+    expect(argv).toEqual([
+      "codex", "--ask-for-approval", "never", "exec", "resume",
+      "-c", "sandbox_mode=read-only", "--json", "--model", "m1", "--", "0199-thread", "-",
+    ]);
+    expect(argv.join(" ")).not.toContain("dangerously");
+  });
+});
