@@ -23,7 +23,7 @@ Each row has `id`, `title`, `command`, `available`, `transports` (`cli` or `acp`
 | id | CLI | ACP, only when that command is already on PATH |
 |---|---|---|
 | `codex` | `codex exec` read-only sandbox | `codex-acp` |
-| `claude` | `claude -p` | `claude-code-acp` |
+| `claude` | `claude -p` | `claude-agent-acp`, then the legacy `claude-code-acp` |
 | `agy` | `agy -p`, `--print`, or `--prompt` | only if help shows an ACP mode |
 | `cursor` | `agent` print mode only when help shows it | `agent acp` |
 | `gemini` | `gemini` print mode when the binary exists | only if help shows an ACP mode |

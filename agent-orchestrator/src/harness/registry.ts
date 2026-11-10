@@ -10,6 +10,8 @@ export interface HarnessSpec {
   cliArgv: string[] | null;
   /** ACP argv. Null until help text shows an ACP mode. */
   acpArgv: string[] | null;
+  /** Older ACP commands tried in order when `acpArgv` is not on PATH. */
+  acpFallbacks?: string[][];
   notes: string[];
   /** Left out of default runs. It still runs when named. */
   retired?: boolean;
@@ -100,9 +102,10 @@ export const HARNESS_SPECS: HarnessSpec[] = [
     title: "Claude Code",
     command: "claude -p",
     cliArgv: ["claude", "-p"],
-    acpArgv: ["claude-code-acp"],
+    acpArgv: ["claude-agent-acp"],
+    acpFallbacks: [["claude-code-acp"]],
     notes: [
-      "Print mode uses claude -p. ACP uses claude-code-acp when that command is already on PATH.",
+      "Print mode uses claude -p. ACP uses claude-agent-acp (npm @agentclientprotocol/claude-agent-acp) when it is already on PATH, then the legacy claude-code-acp.",
     ],
   },
   {
@@ -177,6 +180,8 @@ export function classifyObservation(input: {
   cliHelp: string;
   version: string | null;
   acpOnPath: boolean;
+  /** The ACP argv detection actually found, when it was a fallback. */
+  acpArgv?: string[] | null;
 }): HarnessObservation {
   const help = input.cliHelp ?? "";
   // Grok also ships agent.exe. On Windows it can shadow Cursor's agent.cmd.
@@ -191,7 +196,7 @@ export function classifyObservation(input: {
     input.cliOnPath &&
     cliTransportFromHelp(input.spec.id, help);
 
-  let acpArgv = input.spec.acpArgv;
+  let acpArgv = input.acpArgv ?? input.spec.acpArgv;
   let acp = Boolean(!identityConflict && input.acpOnPath && acpArgv);
   if (
     !acp &&

@@ -235,6 +235,21 @@ describe("classifyObservation", () => {
     expect(row.promptFlag).toBeUndefined();
   });
 
+  it("launches claude-agent-acp first and keeps a detected legacy adapter", () => {
+    expect(spec("claude").acpArgv).toEqual(["claude-agent-acp"]);
+    expect(spec("claude").acpFallbacks).toEqual([["claude-code-acp"]]);
+    const current = classifyObservation({
+      spec: spec("claude"), cliOnPath: true, cliHelp: "-p --model", version: "test", acpOnPath: true,
+    });
+    expect(current.acpArgv).toEqual(["claude-agent-acp"]);
+    const legacy = classifyObservation({
+      spec: spec("claude"), cliOnPath: true, cliHelp: "-p --model", version: "test", acpOnPath: true,
+      acpArgv: ["claude-code-acp"],
+    });
+    expect(legacy.acpArgv).toEqual(["claude-code-acp"]);
+    expect(legacy.transports).toEqual(["cli", "acp"]);
+  });
+
   it("does not treat a help timeout as an ACP transport", () => {
     const row = classifyObservation({
       spec: spec("cursor"),
