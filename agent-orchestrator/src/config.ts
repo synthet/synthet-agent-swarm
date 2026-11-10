@@ -16,7 +16,7 @@ const DEFAULT_CONFIG: OrchestratorConfig = {
   storeOutputs: true,
   storePrompts: false,
   detectionTimeoutMs: 10000,
-  codex: { jsonOutput: false },
+  codex: { jsonOutput: true },
 };
 
 function loadJsonFile(path: string): Partial<OrchestratorConfig> | null {

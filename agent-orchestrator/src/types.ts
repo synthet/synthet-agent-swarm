@@ -1,3 +1,5 @@
+import type { RunOutcome } from "./services/eventParse.js";
+
 export type SubagentName = "claude" | "antigravity" | "codex";
 
 export type HarnessId =
@@ -49,6 +51,14 @@ export interface SubagentResult {
   model?: string;
   /** Model the ACP session confirmed. */
   reportedModel?: string;
+  /** How the run ended, from the harness's own result payload where one exists. */
+  outcome?: RunOutcome;
+  /** Session, thread, chat or conversation id the harness reported. */
+  sessionId?: string;
+  /** Client-side cost estimate, when the harness reports one. */
+  costUsd?: number;
+  /** Permission requests the harness reported as denied. */
+  denials?: number;
 }
 
 export interface AgentDetectionInfo {

@@ -146,7 +146,13 @@ export async function runCodex(
     stdin: prompt,
   });
 
-  const result = finalizeResult("codex", startedAt, commandPreview, run);
+  const result = finalizeResult(
+    "codex",
+    startedAt,
+    commandPreview,
+    run,
+    argv.includes("--json") ? "codex-jsonl" : undefined,
+  );
   result.prompt = prompt;
   return result;
 }

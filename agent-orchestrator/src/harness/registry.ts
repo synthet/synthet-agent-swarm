@@ -55,7 +55,10 @@ export interface SwarmError {
     | "acp_protocol"
     | "invalid_arguments"
     | "execution_failed"
-    | "artifact_storage";
+    | "artifact_storage"
+    | "auth_required"
+    | "rate_limited"
+    | "empty_output";
   message: string;
   details: Record<string, unknown>;
   retryable: boolean;

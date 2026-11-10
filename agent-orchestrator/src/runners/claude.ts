@@ -39,7 +39,8 @@ export function buildClaudeArgv(
   addDirs: string[] = [],
   model?: string,
 ): string[] {
-  const argv = ["claude", "-p", prompt];
+  // json carries result, session_id, total_cost_usd and permission_denials.
+  const argv = ["claude", "-p", prompt, "--output-format", "json"];
   if (addDirs.length > 0) {
     argv.push("--tools", "Read");
     for (const dir of addDirs) argv.push("--add-dir", dir);
@@ -127,7 +128,7 @@ export async function runClaude(
     timeoutMs: request.timeoutMs ?? config.defaultTimeoutMs,
   });
 
-  const result = finalizeResult("claude", startedAt, commandPreview, run);
+  const result = finalizeResult("claude", startedAt, commandPreview, run, "claude-json");
   result.prompt = prompt;
   return result;
 }

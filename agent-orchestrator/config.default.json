@@ -9,6 +9,6 @@
   "storePrompts": false,
   "detectionTimeoutMs": 10000,
   "codex": {
-    "jsonOutput": false
+    "jsonOutput": true
   }
 }

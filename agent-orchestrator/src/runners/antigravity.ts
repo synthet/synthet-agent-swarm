@@ -14,7 +14,7 @@ import type {
   SubagentRequest,
   SubagentResult,
 } from "../types.js";
-import { applyModel } from "../harness/registry.js";
+import { applyModel, helpHasFlag } from "../harness/registry.js";
 import { createErrorResult, finalizeResult } from "./base.js";
 import { detectAntigravity, getAntigravityCommand } from "./detection.js";
 
@@ -43,6 +43,9 @@ export function buildAntigravityArgv(
   const flag = detection.promptFlag ?? "-p";
   const command = detection.command || getAntigravityCommand();
   const argv = [command, flag, prompt];
+  if (helpHasFlag(detection.helpSnippet ?? "", "--output-format")) {
+    argv.push("--output-format", "json");
+  }
   for (const dir of addDirs) argv.push("--add-dir", dir);
   return applyModel(argv, "agy", model);
 }
@@ -120,7 +123,13 @@ export async function runAntigravity(
     timeoutMs: request.timeoutMs ?? config.defaultTimeoutMs,
   });
 
-  const result = finalizeResult("antigravity", startedAt, commandPreview, run);
+  const result = finalizeResult(
+    "antigravity",
+    startedAt,
+    commandPreview,
+    run,
+    argv.includes("--output-format") ? "agy-json" : undefined,
+  );
   result.prompt = prompt;
   return result;
 }

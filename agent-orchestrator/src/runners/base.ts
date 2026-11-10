@@ -1,5 +1,10 @@
 import { z } from "zod";
 import { clampTimeout, isAgentAllowed } from "../config.js";
+import {
+  classifyOutcome,
+  parseHarnessOutput,
+  type OutputFormat,
+} from "../services/eventParse.js";
 import type {
   OrchestratorConfig,
   SubagentRequest,
@@ -74,23 +79,37 @@ export function finalizeResult(
     error?: string;
     timedOut?: boolean;
   },
+  /** Set only when the argv asked the harness for this structured format. */
+  format?: OutputFormat,
 ): SubagentResult {
   const finishedAt = new Date().toISOString();
   const durationMs =
     new Date(finishedAt).getTime() - new Date(startedAt).getTime();
-  const ok =
-    run.exitCode === 0 && !run.timedOut && !run.error;
+  const parsed = parseHarnessOutput(format, run.stdout);
+  const outcome = classifyOutcome({ ...run, parsed });
+  // A denial still leaves a reply; the outcome tells the caller it may be incomplete.
+  const ok = outcome === "ok" || outcome === "permission_denied" || outcome === "soft_denied";
 
   return {
     agent,
     ok,
     exitCode: run.exitCode,
-    stdout: run.stdout,
+    stdout: parsed.text,
     stderr: run.stderr,
     startedAt,
     finishedAt,
     durationMs,
     commandPreview,
-    error: run.error ?? (ok ? undefined : `Process exited with code ${run.exitCode}`),
+    outcome,
+    sessionId: parsed.sessionId,
+    costUsd: parsed.costUsd,
+    denials: parsed.denials || undefined,
+    error: ok
+      ? undefined
+      : run.error ??
+        parsed.failure ??
+        (outcome === "empty_output"
+          ? "The harness exited 0 but printed no reply."
+          : `Process exited with code ${run.exitCode}`),
   };
 }

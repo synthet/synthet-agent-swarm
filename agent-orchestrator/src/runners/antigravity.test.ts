@@ -55,4 +55,19 @@ describe("buildAntigravityArgv", () => {
     expect(argv).toEqual(["agy", "-p", "hello", "--add-dir", "/repo/blind"]);
     expect(argv.join(" ")).not.toContain("dangerously");
   });
+
+  it("asks for the json envelope only when help shows --output-format", () => {
+    const detection: AgentDetectionInfo = {
+      available: true,
+      command: "agy",
+      mode: "prompt",
+      version: "1.5.0",
+      notes: [],
+      promptFlag: "-p",
+      helpSnippet: "  -p, --print <prompt>\n  --output-format <text|json|stream-json>",
+    };
+    expect(buildAntigravityArgv("hello", detection, ["/repo/blind"])).toEqual([
+      "agy", "-p", "hello", "--output-format", "json", "--add-dir", "/repo/blind",
+    ]);
+  });
 });
