@@ -37,7 +37,7 @@ import {
 import { redactSecrets } from "../services/redaction.js";
 import { agreeVotes, type SwarmAgreement } from "../services/votes.js";
 import { captureWorkspaceSnapshot } from "../services/workspaceSnapshot.js";
-import type { OutputFormat, RunOutcome } from "../services/eventParse.js";
+import { trailingHarnessError, type OutputFormat, type RunOutcome } from "../services/eventParse.js";
 import type {
   ModelAttempt,
   OrchestratorConfig,
@@ -257,6 +257,9 @@ async function runPlan(
           ? process.env.XAI_API_KEY ? ["xai.api_key", "cached_token"] : ["cached_token"]
           : undefined,
         resumeSessionId: request.resumeSessionId,
+        ...(request.mode === "respond"
+          ? { permissionPolicy: RESPOND_ACP_POLICY, modeId: plan.id === "cursor" ? "ask" : undefined }
+          : {}),
       });
       const stderr =
         turn.deniedPermissions > 0
@@ -269,6 +272,7 @@ async function runPlan(
         exitCode: 0,
         stdout: turn.text,
         stderr: [io.diagnostics?.(), stderr, restoreWarning].filter(Boolean).join("\n"),
+        error: trailingHarnessError(turn.text),
       });
       if (turn.deniedPermissions > 0) {
         result.denials = turn.deniedPermissions;
@@ -440,7 +444,7 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
       return {
         ok: false, dryRun, harnesses: [],
         error: swarmError("invalid_arguments", problem, { mode }, [
-          `Pass exactly one of ${RESPOND_HARNESSES.join(", ")} on the cli transport.`,
+          `Pass exactly one of ${RESPOND_HARNESSES.join(", ")}; only cursor may use acp.`,
         ]),
       };
     }
@@ -565,6 +569,9 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
  */
 export const RESPOND_HARNESSES = ["claude", "codex", "cursor"] as const;
 
+/** A responder may read and search; every other tool call is rejected. */
+const RESPOND_ACP_POLICY = { allowKinds: ["read", "search"] };
+
 function respondProblem(input: ExecuteSwarmInput, steps: PlanStep[]): string | null {
   if ((input.harnesses?.length ?? 0) !== 1 || steps.length !== 1) return "respond mode needs exactly one harness.";
   const step = steps[0];
@@ -572,7 +579,12 @@ function respondProblem(input: ExecuteSwarmInput, steps: PlanStep[]): string | n
   if (!(RESPOND_HARNESSES as readonly string[]).includes(step.plan.id)) {
     return `respond mode does not support ${step.plan.id}.`;
   }
-  if (step.plan.transport !== "cli") return "respond mode runs only on the cli transport.";
+  // Over ACP only Cursor: its session runs in ask mode and the permission policy rejects edits and
+  // commands. The Claude adapter ignores client fs mediation, and codex-acp's mode comes from its
+  // environment, so both stay on the CLI where their read-only flags apply.
+  if (step.plan.transport !== "cli" && step.plan.id !== "cursor") {
+    return `respond mode runs ${step.plan.id} only on the cli transport.`;
+  }
   return null;
 }
 

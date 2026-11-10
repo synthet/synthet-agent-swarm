@@ -126,3 +126,14 @@ describe("finalizeResult with a structured format", () => {
     expect(result).toMatchObject({ ok: true, outcome: "permission_denied", denials: 1, stdout: "partial" });
   });
 });
+
+describe("trailingHarnessError", () => {
+  it("finds a backend error streamed as the reply's last line", async () => {
+    const { trailingHarnessError } = await import("./eventParse.js");
+    expect(trailingHarnessError("I'll check.\n\nError: RetriableError: [aborted] read ECONNRESET"))
+      .toBe("Error: RetriableError: [aborted] read ECONNRESET");
+    expect(trailingHarnessError("Version 4.2.1.")).toBeUndefined();
+    expect(trailingHarnessError("The log said Error: TypeError: x is undefined, which is fixed in 4.2.1.")).toBeUndefined();
+    expect(trailingHarnessError("")).toBeUndefined();
+  });
+});
