@@ -18,6 +18,7 @@ import { buildClaudeArgv } from "../runners/claude.js";
 import { buildCodexArgv } from "../runners/codex.js";
 import { runSubagentForRequest } from "../runners/index.js";
 import { buildChildEnv, formatCommandPreview, runCommand } from "../services/commandRunner.js";
+import { withHarnessSlot } from "../services/harnessSlots.js";
 import { resolveSpawnTarget } from "../services/resolveExecutable.js";
 import {
   evidenceDirectories,
@@ -172,7 +173,7 @@ function commandArgv(
     return buildAntigravityArgv(prompt, detection, dirs, plan.model);
   }
   if (plan.id === "claude") {
-    return buildClaudeArgv(prompt, dirs, plan.model);
+    return buildClaudeArgv(prompt, dirs, plan.model, { maxBudgetUsd: config.claude?.maxBudgetUsd });
   }
   const flag = plan.observation.promptFlag ?? "-p";
   const bin = plan.observation.spec.cliArgv?.[0] ?? plan.id;
@@ -338,7 +339,11 @@ async function runModel(
   config: OrchestratorConfig,
   prompt: string,
 ): Promise<HarnessRunRow> {
-  const result = { ...(await runPlan(plan, request, config, prompt)), model: plan.model };
+  const run = () => runPlan(plan, request, config, prompt);
+  const result = {
+    ...(await (request.dryRun ? run() : withHarnessSlot(plan.id, config.concurrency?.perHarness ?? 2, run))),
+    model: plan.model,
+  };
   const stored = storeRunResult(
     request.workspaceRoot,
     { ...request, agent: plan.id, model: plan.model },

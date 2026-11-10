@@ -1,5 +1,6 @@
 import { spawn } from "node:child_process";
 import { buildChildEnv } from "../services/commandRunner.js";
+import { killProcessTree, treeSpawnOptions } from "../services/processTree.js";
 import { resolveSpawnTarget } from "../services/resolveExecutable.js";
 import { createLineQueue, type AcpIo } from "./client.js";
 
@@ -23,6 +24,7 @@ export function spawnAcpProcess(argv: string[], cwd: string): AcpIo {
     shell: false,
     windowsHide: true,
     stdio: ["pipe", "pipe", "pipe"],
+    ...treeSpawnOptions(),
   });
   const queue = createLineQueue();
   let buffer = "";
@@ -63,7 +65,7 @@ export function spawnAcpProcess(argv: string[], cwd: string): AcpIo {
     read: () => queue.read(),
     diagnostics: () => diagnostics,
     kill() {
-      child.kill("SIGTERM");
+      killProcessTree(child);
       queue.push(null);
     },
   };

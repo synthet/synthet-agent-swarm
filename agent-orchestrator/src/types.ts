@@ -113,6 +113,9 @@ export interface OrchestratorConfig {
   storePrompts: boolean;
   detectionTimeoutMs: number;
   codex?: { jsonOutput?: boolean };
+  claude?: { maxBudgetUsd?: number };
+  /** Concurrent runs per harness inside one server process. Default 2. */
+  concurrency?: { perHarness?: number };
 }
 
 export interface CommandRunOptions {
