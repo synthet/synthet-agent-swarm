@@ -19,7 +19,7 @@ The Agent Client Protocol (ACP) is a JSON-RPC session between an editor and a co
 | Harness | CLI | ACP, only if the command is already on PATH |
 |---|---|---|
 | `codex` | `codex exec` in a read-only sandbox | `codex-acp` |
-| `claude` | `claude -p`. Judge mode adds `--tools Read` and `--add-dir` | `claude-code-acp` |
+| `claude` | `claude -p`. Judge mode adds `--tools Read` and `--add-dir` | `claude-agent-acp`, then the legacy `claude-code-acp` |
 | `agy` | `agy -p`, `--prompt`, or `--print`, plus `--add-dir` for judge evidence | only when `agy` help shows an ACP mode |
 | `cursor` | `agent` print mode only when help shows `-p`, `--print`, or `--prompt` | `agent acp` |
 | `gemini` | `gemini` print mode when the binary exists | only when help shows an ACP mode |
@@ -27,7 +27,17 @@ The Agent Client Protocol (ACP) is a JSON-RPC session between an editor and a co
 
 A failed ACP handshake is `acp_protocol` for that harness. The other harnesses in the same run still finish.
 
-## What the report claims
+## November 2026 update
+
+A second report, archived on 2026-11-09 as [raw/headless-acp-report-2026-11.md](raw/headless-acp-report-2026-11.md), supersedes parts of the October one. What changed for this repo:
+
+- **Claude.** The adapter moved to the `agentclientprotocol` org as `@agentclientprotocol/claude-agent-acp`, bin `claude-agent-acp`. The Zed-era `claude-code-acp` names are deprecated. Detection tries `claude-agent-acp` first and falls back to `claude-code-acp`.
+- **Antigravity.** `agy acp` is native from CLI 1.5.0 (4 Nov 2026). Detection already adds it when `agy --help` shows an ACP mode. `agy` gates stdout on `isatty()` (antigravity-cli#76), so a non-TTY child on Windows can print nothing.
+- **Gemini.** `--acp` replaced `--experimental-acp`. Detection prefers `--acp`.
+- **Codex.** `codex mcp-server` was removed on 5 Sep 2026; this repo never used it. `--full-auto` is rejected by recent builds; this repo never passes it. `codex-acp` wraps `codex app-server`.
+- **Headless permissions.** Exit codes alone are not proof of success: Claude emits `permission_denied`, Antigravity soft-denies with exit 0, and Cursor print mode only proposes edits without `--force`. Swarm runs are read-only, so a denial means the harness did not finish its read, not that a write was blocked.
+
+## What the October report claims
 
 These launch lines are the report's, not commands this repo runs.
 

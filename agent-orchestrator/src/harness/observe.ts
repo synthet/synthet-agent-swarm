@@ -58,12 +58,22 @@ export async function observeHarnesses(
       const cliToken = firstToken(spec.cliArgv);
       const acpToken = firstToken(spec.acpArgv);
       const cliOnPath = cliToken ? await onPath(cliToken, cwd, timeoutMs) : false;
-      const acpOnPath =
+      let acpOnPath =
         spec.id === "grok" || spec.id === "cursor"
           ? await onPath(acpToken ?? "", cwd, timeoutMs)
           : acpToken && acpToken !== cliToken
             ? await onPath(acpToken, cwd, timeoutMs)
             : cliOnPath && Boolean(spec.acpArgv);
+      let acpArgv: string[] | undefined;
+      if (!acpOnPath) {
+        for (const fallback of spec.acpFallbacks ?? []) {
+          if (fallback[0] && await onPath(fallback[0], cwd, timeoutMs)) {
+            acpOnPath = true;
+            acpArgv = fallback;
+            break;
+          }
+        }
+      }
 
       let cliHelp = "";
       let version: string | null = null;
@@ -96,6 +106,7 @@ export async function observeHarnesses(
         cliHelp,
         version,
         acpOnPath: Boolean(acpToken) && acpOnPath,
+        acpArgv,
       });
     }),
   );

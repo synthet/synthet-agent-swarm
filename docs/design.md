@@ -57,7 +57,7 @@ Codex, Claude, and Antigravity one-shot CLIs go through [agent-orchestrator/src/
 | id | One-shot CLI | ACP, when that command is already on PATH |
 |---|---|---|
 | `codex` | `codex exec` with `--sandbox read-only` and `--ask-for-approval never` | `codex-acp` |
-| `claude` | `claude -p` | `claude-code-acp` |
+| `claude` | `claude -p` | `claude-agent-acp`, then the legacy `claude-code-acp` |
 | `agy` | `agy -p`, or `--print` / `--prompt` when help shows that flag | the same binary with `acp` when help shows an ACP mode |
 | `cursor` | `agent` print mode only when help shows `-p`, `--print`, or `--prompt` | `agent acp` |
 | `gemini` | `gemini` print mode when the binary exists and help shows a print flag | the same binary with `acp` when help shows an ACP mode |
