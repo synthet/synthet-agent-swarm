@@ -1,4 +1,6 @@
+import { readFileSync } from "node:fs";
 import { getWorkspaceRoot, loadConfig } from "./config.js";
+import { invalidArguments, swarmRunInputSchema, swarmRunRequest } from "./tools/swarmRun.js";
 import { swarmSearch } from "./tools/swarmSearch.js";
 import {
   runSubagentInputSchema,
@@ -18,9 +20,13 @@ function printUsage(): void {
   synthet-agent-swarm detect
   synthet-agent-swarm decide --state <json> --questions <json> [--harnesses <h1,h2>] [--model <model>] [--timeout-ms <ms>] [--dry-run]
   synthet-agent-swarm run --agent <codex|antigravity|claude> --task "<task>" [options]
+  synthet-agent-swarm run --request <file.json|->
   synthet-agent-swarm swarm --task "<task>" [options]
 
 detect prints the swarm_search catalog.
+run --request reads one swarm_run request as JSON from a file, or from stdin with -, so no prompt
+text is on the command line. It prints one JSON object: the swarm_run response plus "reply", the
+reply text when exactly one harness ran and succeeded. Exit 0 ok, 1 run failed, 2 invalid request.
 decide runs a zero-tool Jev-compatible structured decision over lightweight flash models.
 
 Options for run:
@@ -79,6 +85,10 @@ function parseRunArgs(args: string[]): Record<string, unknown> {
         break;
       case "--agents":
         out.agents = next?.split(",").map((agent) => agent.trim()).filter(Boolean);
+        i++;
+        break;
+      case "--request":
+        out.request = next;
         i++;
         break;
       case "--harnesses":
@@ -143,6 +153,7 @@ export async function runCli(argv: string[]): Promise<number> {
 
   if (command === "run") {
     const raw = parseRunArgs(rest);
+    if (typeof raw.request === "string") return runRequest(raw.request);
     const parsed = runSubagentInputSchema.safeParse({
       ...raw,
       allowWrites: raw.allowWrites ?? false,
@@ -174,6 +185,30 @@ export async function runCli(argv: string[]): Promise<number> {
 
   printUsage();
   return 1;
+}
+
+async function readStdin(): Promise<string> {
+  const chunks: Buffer[] = [];
+  for await (const chunk of process.stdin) chunks.push(Buffer.from(chunk));
+  return Buffer.concat(chunks).toString("utf8");
+}
+
+async function runRequest(source: string): Promise<number> {
+  let raw: unknown;
+  try {
+    raw = JSON.parse(source === "-" ? await readStdin() : readFileSync(source, "utf8"));
+  } catch (err) {
+    console.log(JSON.stringify(invalidArguments({ request: err instanceof Error ? err.message : String(err) })));
+    return 2;
+  }
+  const parsed = swarmRunInputSchema.safeParse(raw);
+  if (!parsed.success) {
+    console.log(JSON.stringify(invalidArguments(parsed.error.flatten())));
+    return 2;
+  }
+  const response = await swarmRunRequest(parsed.data);
+  console.log(JSON.stringify(response));
+  return response.ok ? 0 : 1;
 }
 
 export function getCliWorkspaceRoot(): string {

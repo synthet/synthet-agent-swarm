@@ -28,7 +28,7 @@ import {
   validateAndResolveFiles,
   validateEvidenceFiles,
 } from "../services/pathSafety.js";
-import { blindSnapshot, buildSubagentPrompt } from "../services/promptBuilder.js";
+import { blindSnapshot, buildSubagentPrompt, usesBlindSnapshot } from "../services/promptBuilder.js";
 import {
   relativeOutputPath,
   storeRunResult,
@@ -61,6 +61,8 @@ export interface ExecuteSwarmInput {
   observations?: HarnessObservation[];
   /** Continue this session id on the one selected harness. */
   resumeSessionId?: string;
+  /** Per-run spend cap where the harness supports one. */
+  budgetUsd?: number;
 }
 
 export interface HarnessRunRow {
@@ -178,8 +180,9 @@ function commandArgv(
   }
   if (plan.id === "claude") {
     return buildClaudeArgv(prompt, dirs, plan.model, {
-      maxBudgetUsd: config.claude?.maxBudgetUsd,
+      maxBudgetUsd: request.budgetUsd ?? config.claude?.maxBudgetUsd,
       resumeSessionId: request.resumeSessionId,
+      respond: request.mode === "respond",
     });
   }
   const flag = plan.observation.promptFlag ?? "-p";
@@ -188,6 +191,7 @@ function commandArgv(
     [
       bin, ...geminiIsolation, flag, prompt, ...cursorJson(plan),
       ...(request.resumeSessionId && plan.id === "cursor" ? ["--resume", request.resumeSessionId] : []),
+      ...(request.mode === "respond" && plan.id === "cursor" ? ["--mode=ask"] : []),
     ],
     plan.id,
     plan.model,
@@ -430,6 +434,17 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
   if (!planned.ok) {
     return { ok: false, dryRun, harnesses: [], error: planned.error };
   }
+  if (mode === "respond") {
+    const problem = respondProblem(input, planned.steps);
+    if (problem) {
+      return {
+        ok: false, dryRun, harnesses: [],
+        error: swarmError("invalid_arguments", problem, { mode }, [
+          `Pass exactly one of ${RESPOND_HARNESSES.join(", ")} on the cli transport.`,
+        ]),
+      };
+    }
+  }
   if (input.resumeSessionId) {
     const problem = resumeProblem(input, planned.steps, mode);
     if (problem) {
@@ -454,11 +469,12 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
     extraContext: input.extraContext,
     model: input.model,
     resumeSessionId: input.resumeSessionId,
+    budgetUsd: input.budgetUsd,
   };
 
   const promptFor = async (plan: RunnablePlan): Promise<string> => {
     const snapshot =
-      mode === "judge"
+      usesBlindSnapshot(mode)
         ? blindSnapshot(workspaceRoot)
         : await captureWorkspaceSnapshot(workspaceRoot, input.files);
     return buildSubagentPrompt({
@@ -540,6 +556,24 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
           ? failed[0]?.error
           : undefined,
   };
+}
+
+/**
+ * Harnesses whose read-only limits a responder relies on: Claude with --tools Read,Grep,Glob, Codex in
+ * its read-only sandbox, Cursor in ask mode. Antigravity is left out: a non-TTY child on Windows prints
+ * nothing (antigravity-cli#76) and soft-denies with exit 0.
+ */
+export const RESPOND_HARNESSES = ["claude", "codex", "cursor"] as const;
+
+function respondProblem(input: ExecuteSwarmInput, steps: PlanStep[]): string | null {
+  if ((input.harnesses?.length ?? 0) !== 1 || steps.length !== 1) return "respond mode needs exactly one harness.";
+  const step = steps[0];
+  if (step?.kind !== "run") return null;
+  if (!(RESPOND_HARNESSES as readonly string[]).includes(step.plan.id)) {
+    return `respond mode does not support ${step.plan.id}.`;
+  }
+  if (step.plan.transport !== "cli") return "respond mode runs only on the cli transport.";
+  return null;
 }
 
 /** Resume continues one known session; it is not a fan-out. */

@@ -6,6 +6,7 @@ import { evidenceDirectories } from "../services/pathSafety.js";
 import {
   blindSnapshot,
   buildSubagentPrompt,
+  usesBlindSnapshot,
 } from "../services/promptBuilder.js";
 import { captureWorkspaceSnapshot } from "../services/workspaceSnapshot.js";
 import type {
@@ -38,11 +39,12 @@ export function buildClaudeArgv(
   prompt: string,
   addDirs: string[] = [],
   model?: string,
-  options: { maxBudgetUsd?: number; resumeSessionId?: string } = {},
+  options: { maxBudgetUsd?: number; resumeSessionId?: string; respond?: boolean } = {},
 ): string[] {
   // json carries result, session_id, total_cost_usd and permission_denials.
+  // A responder's prompt quotes remote text, so it goes on stdin instead of the command line.
   const argv = [
-    "claude", "-p", prompt, "--output-format", "json",
+    "claude", "-p", ...(options.respond ? [] : [prompt]), "--output-format", "json",
     // Unattended: anything that would prompt is denied, and no user or project MCP server starts.
     // Never --bare: it skips the logged-in account and needs ANTHROPIC_API_KEY.
     "--permission-mode", "dontAsk", "--permission-prompts", "none", "--strict-mcp-config",
@@ -54,7 +56,9 @@ export function buildClaudeArgv(
     // Fork: a worker never writes into the transcript of a session that may still be live (ADR 0003).
     argv.push("--resume", options.resumeSessionId, "--fork-session");
   }
-  if (addDirs.length > 0) {
+  if (options.respond) {
+    argv.push("--tools", "Read,Grep,Glob");
+  } else if (addDirs.length > 0) {
     argv.push("--tools", "Read");
     for (const dir of addDirs) argv.push("--add-dir", dir);
   }
@@ -69,7 +73,7 @@ export async function runClaude(
   const detection = await getClaudeDetection(config, request.workspaceRoot);
 
   const snapshot =
-    request.mode === "judge"
+    usesBlindSnapshot(request.mode)
       ? blindSnapshot(request.workspaceRoot)
       : await captureWorkspaceSnapshot(request.workspaceRoot, request.files);
 
@@ -90,7 +94,11 @@ export async function runClaude(
       ? evidenceDirectories(request.workspaceRoot, request.files)
       : [],
     request.model,
-    { maxBudgetUsd: config.claude?.maxBudgetUsd, resumeSessionId: request.resumeSessionId },
+    {
+      maxBudgetUsd: request.budgetUsd ?? config.claude?.maxBudgetUsd,
+      resumeSessionId: request.resumeSessionId,
+      respond: request.mode === "respond",
+    },
   );
   const commandPreview = formatCommandPreview(argv);
 
@@ -140,6 +148,7 @@ export async function runClaude(
     argv,
     cwd: request.workspaceRoot,
     timeoutMs: request.timeoutMs ?? config.defaultTimeoutMs,
+    ...(request.mode === "respond" ? { stdin: prompt } : {}),
   });
 
   const result = finalizeResult("claude", startedAt, commandPreview, run, "claude-json");

@@ -18,7 +18,8 @@ export type SubagentMode =
   | "explain"
   | "test"
   | "tie-breaker"
-  | "judge";
+  | "judge"
+  | "respond";
 
 export interface SubagentRequest {
   agent: string;
@@ -33,6 +34,8 @@ export interface SubagentRequest {
   model?: string;
   /** Continue this harness session instead of starting a new one (swarm_run `resume`). */
   resumeSessionId?: string;
+  /** Per-run spend cap, where the harness supports one (Claude --max-budget-usd). */
+  budgetUsd?: number;
 }
 
 export interface SubagentResult {
