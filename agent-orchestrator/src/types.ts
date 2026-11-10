@@ -31,6 +31,8 @@ export interface SubagentRequest {
   allowWrites?: boolean;
   extraContext?: string;
   model?: string;
+  /** Continue this harness session instead of starting a new one (swarm_run `resume`). */
+  resumeSessionId?: string;
 }
 
 export interface SubagentResult {

@@ -19,6 +19,7 @@ describe("tool contract", () => {
       "swarm_search",
       "swarm_run",
       "swarm_decide",
+      "swarm_sessions",
       "run_judge_panel",
       "detect_subagents",
       "run_subagent",

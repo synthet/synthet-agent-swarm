@@ -39,6 +39,7 @@ export function buildAntigravityArgv(
   detection: AgentDetectionInfo,
   addDirs: string[] = [],
   model?: string,
+  resumeSessionId?: string,
 ): string[] {
   const flag = detection.promptFlag ?? "-p";
   const command = detection.command || getAntigravityCommand();
@@ -46,6 +47,7 @@ export function buildAntigravityArgv(
   if (helpHasFlag(detection.helpSnippet ?? "", "--output-format")) {
     argv.push("--output-format", "json");
   }
+  if (resumeSessionId) argv.push("--conversation", resumeSessionId);
   for (const dir of addDirs) argv.push("--add-dir", dir);
   return applyModel(argv, "agy", model);
 }
@@ -80,6 +82,7 @@ export async function runAntigravity(
       ? evidenceDirectories(request.workspaceRoot, request.files)
       : [],
     request.model,
+    request.resumeSessionId,
   );
   const commandPreview = formatCommandPreview(argv);
 

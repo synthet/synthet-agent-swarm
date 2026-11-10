@@ -9,6 +9,7 @@ export type AcpPhase =
   | "initialize"
   | "authenticate"
   | "session/new"
+  | "session/load"
   | "session/set_config_option"
   | "session/prompt";
 
@@ -30,6 +31,8 @@ export class AcpTurnError extends Error {
 export interface AcpTurnResult {
   text: string;
   deniedPermissions: number;
+  /** The ACP session the turn ran in. */
+  sessionId?: string;
   /** Model the session confirmed. */
   reportedModel?: string;
   /** Set when the peer's previous default model could not be put back. */
@@ -127,7 +130,15 @@ function textFromUpdate(update: unknown): string {
 
 export async function runAcpTurn(
   io: AcpIo,
-  input: { cwd: string; prompt: string; timeoutMs: number; authMethodIds?: string[]; model?: string },
+  input: {
+    cwd: string;
+    prompt: string;
+    timeoutMs: number;
+    authMethodIds?: string[];
+    model?: string;
+    /** Load this session with session/load instead of creating one. Needs the loadSession capability. */
+    resumeSessionId?: string;
+  },
 ): Promise<AcpTurnResult> {
   let deniedPermissions = 0;
   let text = "";
@@ -233,7 +244,7 @@ export async function runAcpTurn(
         terminal: false,
       },
       clientInfo: { name: "synthet-agent-swarm", version: "0.1.1" },
-    }) as { authMethods?: Array<{ id: string }> } | undefined;
+    }) as { authMethods?: Array<{ id: string }>; agentCapabilities?: { loadSession?: unknown } } | undefined;
     if (input.authMethodIds && initialized?.authMethods?.length) {
       const methodId = input.authMethodIds.find(id =>
         initialized.authMethods!.some(method => method.id === id),
@@ -243,10 +254,26 @@ export async function runAcpTurn(
       }
       await request("authenticate", { methodId, _meta: { headless: true } });
     }
-    const created = (await request("session/new", {
-      cwd: input.cwd,
-      mcpServers: [],
-    })) as { sessionId?: string; models?: { currentModelId?: unknown }; configOptions?: unknown } | undefined;
+    type SessionSetup = { sessionId?: string; models?: { currentModelId?: unknown }; configOptions?: unknown } | undefined;
+    let created: SessionSetup;
+    if (input.resumeSessionId) {
+      if (initialized?.agentCapabilities?.loadSession !== true) {
+        throw failure("acp_protocol", "ACP peer does not advertise loadSession, so the session cannot be resumed.");
+      }
+      const loaded = (await request("session/load", {
+        sessionId: input.resumeSessionId,
+        cwd: input.cwd,
+        mcpServers: [],
+      })) as SessionSetup;
+      // session/load replays history as session/update notifications; only this turn's reply counts.
+      text = "";
+      created = { ...loaded, sessionId: input.resumeSessionId };
+    } else {
+      created = (await request("session/new", {
+        cwd: input.cwd,
+        mcpServers: [],
+      })) as SessionSetup;
+    }
     if (!created?.sessionId) throw failure("acp_protocol", "ACP session/new returned no sessionId.");
     const currentModel = created.models?.currentModelId;
     let reportedModel = typeof currentModel === "string" ? currentModel : undefined;
@@ -277,7 +304,7 @@ export async function runAcpTurn(
     if (response?.stopReason !== "end_turn") {
       throw failure("acp_protocol", "ACP session/prompt did not complete with end_turn.");
     }
-    return { text, deniedPermissions, reportedModel };
+    return { text, deniedPermissions, reportedModel, sessionId: created.sessionId };
   })();
 
   try {

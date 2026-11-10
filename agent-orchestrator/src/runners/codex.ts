@@ -41,7 +41,9 @@ export function buildCodexArgv(
   config: OrchestratorConfig,
   imagePaths: string[] = [],
   model?: string,
+  resumeSessionId?: string,
 ): string[] {
+  if (resumeSessionId) return buildCodexResumeArgv(detection, config, model, resumeSessionId);
   const argv = [
     "codex",
     "--ask-for-approval",
@@ -67,6 +69,34 @@ export function buildCodexArgv(
   const withModel = applyModel(argv, "codex", model);
   // --image consumes multiple values; keep the stdin marker positional.
   withModel.splice(withModel.length - 1, 0, "--");
+  return withModel;
+}
+
+/**
+ * `codex exec resume` has no --sandbox or --cd option, so the read-only sandbox goes in as a config
+ * override and the working directory comes from the spawn cwd. The prompt still comes from stdin.
+ */
+function buildCodexResumeArgv(
+  detection: AgentDetectionInfo,
+  config: OrchestratorConfig,
+  model: string | undefined,
+  sessionId: string,
+): string[] {
+  const argv = [
+    "codex",
+    "--ask-for-approval",
+    "never",
+    "exec",
+    "resume",
+    "-c",
+    "sandbox_mode=read-only",
+  ];
+  if (config.codex?.jsonOutput && detection.helpSnippet?.includes("--json")) {
+    argv.push("--json");
+  }
+  argv.push("-");
+  const withModel = applyModel(argv, "codex", model);
+  withModel.splice(withModel.length - 1, 0, "--", sessionId);
   return withModel;
 }
 
@@ -102,6 +132,7 @@ export async function runCodex(
       ? evidenceImagePaths(request.workspaceRoot, request.files)
       : [],
     request.model,
+    request.resumeSessionId,
   );
   const commandPreview = formatCommandPreview(argv);
 

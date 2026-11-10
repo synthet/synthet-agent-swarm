@@ -70,4 +70,13 @@ describe("buildAntigravityArgv", () => {
       "agy", "-p", "hello", "--output-format", "json", "--add-dir", "/repo/blind",
     ]);
   });
+
+  it("resumes a conversation by id", () => {
+    const detection: AgentDetectionInfo = {
+      available: true, command: "agy", mode: "prompt", version: "1.5.0", notes: [], promptFlag: "-p",
+    };
+    expect(buildAntigravityArgv("hello", detection, [], undefined, "conv-7")).toEqual([
+      "agy", "-p", "hello", "--conversation", "conv-7",
+    ]);
+  });
 });

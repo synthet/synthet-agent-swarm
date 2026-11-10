@@ -35,4 +35,9 @@ describe("buildClaudeArgv", () => {
     const argv = buildClaudeArgv("hi", [], undefined, { maxBudgetUsd: 0.25 });
     expect(argv.slice(-2)).toEqual(["--max-budget-usd", "0.25"]);
   });
+
+  it("forks a resumed session instead of writing into it", () => {
+    const argv = buildClaudeArgv("hi", [], undefined, { resumeSessionId: "89e4e4be" });
+    expect(argv.slice(-3)).toEqual(["--resume", "89e4e4be", "--fork-session"]);
+  });
 });

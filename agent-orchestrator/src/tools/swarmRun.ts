@@ -24,10 +24,18 @@ export const swarmRunInputSchema = z.object({
   timeoutMs: z.number().int().positive().optional(),
   dryRun: z.boolean().optional().default(false),
   extraContext: z.string().max(4000).optional(),
+  resume: z
+    .object({
+      sessionId: z.string().regex(/^[A-Za-z0-9][A-Za-z0-9._:-]{0,199}$/),
+    })
+    .strict()
+    .optional()
+    .describe("Continue a session a previous run reported in sessionId. Exactly one harness. Claude forks it (--fork-session) instead of writing into the original transcript."),
 });
 
 export async function swarmRunTool(input: z.infer<typeof swarmRunInputSchema>) {
-  const result = await executeSwarm(input satisfies ExecuteSwarmInput);
+  const { resume, ...rest } = input;
+  const result = await executeSwarm({ ...rest, resumeSessionId: resume?.sessionId } satisfies ExecuteSwarmInput);
   return {
     ok: result.ok,
     dryRun: result.dryRun,

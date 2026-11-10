@@ -19,6 +19,7 @@ import { buildCodexArgv } from "../runners/codex.js";
 import { runSubagentForRequest } from "../runners/index.js";
 import { buildChildEnv, formatCommandPreview, runCommand } from "../services/commandRunner.js";
 import { withHarnessSlot } from "../services/harnessSlots.js";
+import { beginRun, endRun } from "../services/runRegistry.js";
 import { resolveSpawnTarget } from "../services/resolveExecutable.js";
 import {
   evidenceDirectories,
@@ -58,6 +59,8 @@ export interface ExecuteSwarmInput {
   dryRun?: boolean;
   extraContext?: string;
   observations?: HarnessObservation[];
+  /** Continue this session id on the one selected harness. */
+  resumeSessionId?: string;
 }
 
 export interface HarnessRunRow {
@@ -167,18 +170,25 @@ function commandArgv(
       config,
       images,
       plan.model,
+      request.resumeSessionId,
     );
   }
   if (plan.id === "agy") {
-    return buildAntigravityArgv(prompt, detection, dirs, plan.model);
+    return buildAntigravityArgv(prompt, detection, dirs, plan.model, request.resumeSessionId);
   }
   if (plan.id === "claude") {
-    return buildClaudeArgv(prompt, dirs, plan.model, { maxBudgetUsd: config.claude?.maxBudgetUsd });
+    return buildClaudeArgv(prompt, dirs, plan.model, {
+      maxBudgetUsd: config.claude?.maxBudgetUsd,
+      resumeSessionId: request.resumeSessionId,
+    });
   }
   const flag = plan.observation.promptFlag ?? "-p";
   const bin = plan.observation.spec.cliArgv?.[0] ?? plan.id;
   return applyModel(
-    [bin, ...geminiIsolation, flag, prompt, ...cursorJson(plan)],
+    [
+      bin, ...geminiIsolation, flag, prompt, ...cursorJson(plan),
+      ...(request.resumeSessionId && plan.id === "cursor" ? ["--resume", request.resumeSessionId] : []),
+    ],
     plan.id,
     plan.model,
   );
@@ -242,6 +252,7 @@ async function runPlan(
         authMethodIds: plan.id === "grok"
           ? process.env.XAI_API_KEY ? ["xai.api_key", "cached_token"] : ["cached_token"]
           : undefined,
+        resumeSessionId: request.resumeSessionId,
       });
       const stderr =
         turn.deniedPermissions > 0
@@ -259,7 +270,7 @@ async function runPlan(
         result.denials = turn.deniedPermissions;
         if (result.outcome === "ok") result.outcome = "permission_denied";
       }
-      return { ...result, reportedModel: turn.reportedModel };
+      return { ...result, reportedModel: turn.reportedModel, sessionId: turn.sessionId };
     } catch (err) {
       const message = err instanceof Error ? err.message : String(err);
       return finalizeResult(plan.id, startedAt, commandPreview, {
@@ -339,9 +350,21 @@ async function runModel(
   config: OrchestratorConfig,
   prompt: string,
 ): Promise<HarnessRunRow> {
-  const run = () => runPlan(plan, request, config, prompt);
+  const run = async () => {
+    const runId = beginRun({ harness: plan.id, transport: plan.transport, model: plan.model });
+    try {
+      const done = await runPlan(plan, request, config, prompt);
+      endRun(runId, { ok: done.ok, outcome: done.outcome, sessionId: done.sessionId });
+      return done;
+    } catch (err) {
+      endRun(runId, { ok: false, outcome: "error" });
+      throw err;
+    }
+  };
   const result = {
-    ...(await (request.dryRun ? run() : withHarnessSlot(plan.id, config.concurrency?.perHarness ?? 2, run))),
+    ...(await (request.dryRun
+      ? runPlan(plan, request, config, prompt)
+      : withHarnessSlot(plan.id, config.concurrency?.perHarness ?? 2, run))),
     model: plan.model,
   };
   const stored = storeRunResult(
@@ -407,6 +430,17 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
   if (!planned.ok) {
     return { ok: false, dryRun, harnesses: [], error: planned.error };
   }
+  if (input.resumeSessionId) {
+    const problem = resumeProblem(input, planned.steps, mode);
+    if (problem) {
+      return {
+        ok: false, dryRun, harnesses: [],
+        error: swarmError("invalid_arguments", problem, { resume: input.resumeSessionId }, [
+          "Pass resume with exactly one harness, no modelChains, and a mode other than judge.",
+        ]),
+      };
+    }
+  }
 
   const request: SubagentRequest = {
     agent: "swarm",
@@ -419,6 +453,7 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
     allowWrites: false,
     extraContext: input.extraContext,
     model: input.model,
+    resumeSessionId: input.resumeSessionId,
   };
 
   const promptFor = async (plan: RunnablePlan): Promise<string> => {
@@ -505,6 +540,18 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
           ? failed[0]?.error
           : undefined,
   };
+}
+
+/** Resume continues one known session; it is not a fan-out. */
+function resumeProblem(input: ExecuteSwarmInput, steps: PlanStep[], mode: SubagentMode): string | null {
+  if ((input.harnesses?.length ?? 0) !== 1 || steps.length !== 1) return "resume needs exactly one harness.";
+  if (input.modelChains && Object.keys(input.modelChains).length > 0) return "resume cannot be combined with modelChains.";
+  if (mode === "judge") return "resume is not available in judge mode; judges start fresh.";
+  const step = steps[0];
+  if (step?.kind === "run" && step.plan.transport === "cli" && step.plan.id === "gemini") {
+    return "The gemini CLI runner has no resume flag.";
+  }
+  return null;
 }
 
 /** Drop stdout before an MCP response. Agreement already consumed it. */

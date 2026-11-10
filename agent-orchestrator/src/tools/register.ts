@@ -6,11 +6,13 @@ import { runSubagentInputSchema, runSubagentTool } from "./runSubagent.js";
 import { swarmSearch, swarmSearchInputSchema } from "./swarmSearch.js";
 import { invalidArguments, swarmRunInputSchema, swarmRunTool } from "./swarmRun.js";
 import { swarmDecideInputSchema, swarmDecideTool } from "./swarmDecide.js";
+import { swarmSessionsInputSchema, swarmSessionsTool } from "./swarmSessions.js";
 
 export const TOOL_NAMES = [
   "swarm_search",
   "swarm_run",
   "swarm_decide",
+  "swarm_sessions",
   "run_judge_panel",
   "detect_subagents",
   "run_subagent",
@@ -76,6 +78,21 @@ export function registerSwarmTools(server: McpServer): void {
       if (!parsed.success) return textResult(invalidArguments(parsed.error.flatten()), true);
       const result = await swarmDecideTool(parsed.data);
       return textResult(result, !result.ok);
+    },
+  );
+
+  server.registerTool(
+    "swarm_sessions",
+    {
+      description:
+        "List harness runs and sessions: runs in flight in this server, its recent runs, stored results under .agent-runs with their sessionId and outcome, and the harnesses' own sessions where a machine-readable listing exists (claude agents --json). Contains no prompts or replies. Pass a sessionId to swarm_run resume to continue one.",
+      inputSchema: swarmSessionsInputSchema.shape,
+      annotations: READ_ONLY,
+    },
+    async (input) => {
+      const parsed = swarmSessionsInputSchema.safeParse(input);
+      if (!parsed.success) return textResult(invalidArguments(parsed.error.flatten()), true);
+      return textResult(await swarmSessionsTool(parsed.data));
     },
   );
 
