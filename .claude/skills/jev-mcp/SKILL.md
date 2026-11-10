@@ -43,4 +43,4 @@ and deterministic rules in normal code; give Jev narrow semantic judgments only.
 
 - Do not treat Jev as a chat model, coder, or image judge.
 - Do not bypass MCP by pasting API keys into prompts or tool args.
-- Canonical server lives at `D:\Projects\jev-mcp` (`AGENTS.md`, `README.md`).
+- Canonical server lives at `<projects-root>\jev-mcp` (`AGENTS.md`, `README.md`).

@@ -4,7 +4,7 @@ The retained MCP panel artifacts did not establish multi-judge agreement: no liv
 
 ## Evidence and scope
 
-Read-only inspection covered `D:/Projects/image-scoring-skills`, this repository's source and Git history, and current primary vendor documentation. No photo judges, swarms, or paid image evaluations were launched. No sibling files, global harness configuration, hooks, or running study jobs were changed.
+Read-only inspection covered `<projects-root>/image-scoring-skills`, this repository's source and Git history, and current primary vendor documentation. No photo judges, swarms, or paid image evaluations were launched. No sibling files, global harness configuration, hooks, or running study jobs were changed.
 
 | Corpus | Snapshot |
 |---|---|
@@ -38,7 +38,7 @@ The MCP server's `swarm_run` defaults to all available allowed harnesses. Its ma
 
 ## Historical failures
 
-Paths below are relative to `D:/Projects/image-scoring-skills/.agent-runs/`.
+Paths below are relative to `<projects-root>/image-scoring-skills/.agent-runs/`.
 
 | Evidence | Observation | Assessment |
 |---|---|---|
@@ -113,7 +113,7 @@ These follow-ups are scoped plans, not claims of deployed fixes. No global setup
 
 ## Additional quota research assessment
 
-The user supplied `D:/Downloads/deep-research-report (12).md` during release preparation. It is dated October 23, whereas this review is dated October 22, and its citation markers do not resolve to source URLs. Treat it as research input rather than evidence of installed capabilities or account entitlement. The relevant claims were checked against official pages on October 22:
+The user supplied `<downloads>/deep-research-report (12).md` during release preparation. It is dated October 23, whereas this review is dated October 22, and its citation markers do not resolve to source URLs. Treat it as research input rather than evidence of installed capabilities or account entitlement. The relevant claims were checked against official pages on October 22:
 
 | Provider | Verified documented interface | Integration boundary |
 |---|---|---|

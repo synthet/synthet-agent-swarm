@@ -12,7 +12,7 @@ Cursor and Gemini appear in the image-scoring panels below. This server runs the
 
 ### Shared harness
 
-`judge-panel` (`scripts/panel.py`, vendored at `D:\Projects\image-scoring-skills\scripts\neardupe_study\vendor\judge_panel\`) runs Claude, Codex, Antigravity, and Cursor over blind images:
+`judge-panel` (`scripts/panel.py`, vendored at `<projects-root>\image-scoring-skills\scripts\neardupe_study\vendor\judge_panel\`) runs Claude, Codex, Antigravity, and Cursor over blind images:
 
 `build -> run -> votes -> jev -> analyze`
 
@@ -22,7 +22,7 @@ Judges do not see scores, model names, or human labels. Raw replies are resumabl
 
 | Script | Judges | Decision |
 |---|---|---|
-| `D:\Projects\image-scoring-backend\scripts\research\judges\species_panel.py` | claude, codex, agy, cursor, gemini | Blind species A/B. Consensus is an agent-panel label. |
+| `<projects-root>\image-scoring-backend\scripts\research\judges\species_panel.py` | claude, codex, agy, cursor, gemini | Blind species A/B. Consensus is an agent-panel label. |
 | `scripts\research\judges\box_panel.py` | same CLI plumbing | Box grades (`usable` or `tight`). Not an owner gate. |
 | `scripts\research\judges\culling_panel.py` | same CLI plumbing | Burst pick / keep / reject. Splits go to Jev outside the script. |
 | `scripts\research\scene_route\cli_judges.py` | codex, agy, claude | Scene majority. Not ground truth. |

@@ -10,3 +10,20 @@ dist/
 /.cursor/mcp.json
 /.claude/settings.local.json
 /.agents/mcp_config.json
+
+# Secrets and local-only state
+.env
+.env.*
+!.env.example
+.agent/scratch/*
+!.agent/scratch/.gitkeep
+**/.agent-runs/
+.agent-memory/raw-sessions/*
+!.agent-memory/raw-sessions/.gitkeep
+.agent-memory/dreams/*
+!.agent-memory/dreams/.gitkeep
+**/_local/
+.llmwiki/
+graphify-out/
+__pycache__/
+*.py[cod]
