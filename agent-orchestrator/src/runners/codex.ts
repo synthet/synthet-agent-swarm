@@ -6,6 +6,7 @@ import { evidenceImagePaths } from "../services/pathSafety.js";
 import {
   blindSnapshot,
   buildSubagentPrompt,
+  usesBlindSnapshot,
 } from "../services/promptBuilder.js";
 import { captureWorkspaceSnapshot } from "../services/workspaceSnapshot.js";
 import type {
@@ -108,7 +109,7 @@ export async function runCodex(
   const detection = await getCodexDetection(config, request.workspaceRoot);
 
   const snapshot =
-    request.mode === "judge"
+    usesBlindSnapshot(request.mode)
       ? blindSnapshot(request.workspaceRoot)
       : await captureWorkspaceSnapshot(request.workspaceRoot, request.files);
 

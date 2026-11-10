@@ -6,6 +6,7 @@ import { evidenceDirectories } from "../services/pathSafety.js";
 import {
   blindSnapshot,
   buildSubagentPrompt,
+  usesBlindSnapshot,
 } from "../services/promptBuilder.js";
 import { captureWorkspaceSnapshot } from "../services/workspaceSnapshot.js";
 import type {
@@ -60,7 +61,7 @@ export async function runAntigravity(
   const detection = await getAntigravityDetection(config, request.workspaceRoot);
 
   const snapshot =
-    request.mode === "judge"
+    usesBlindSnapshot(request.mode)
       ? blindSnapshot(request.workspaceRoot)
       : await captureWorkspaceSnapshot(request.workspaceRoot, request.files);
 
