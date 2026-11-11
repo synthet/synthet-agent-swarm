@@ -48,7 +48,7 @@ npm run build
 node dist/index.js swarm --task "Return JSON only: {\"images\":[{\"id\":\"a\",\"choice\":\"A\"}]}" --files blind/a.jpg --dry-run
 ```
 
-MCP: `swarm_search`, then `swarm_run` with `mode: "judge"` and the evidence `files`. Omit `harnesses` to use every available harness, or pass ids such as `codex` and `agy`. Optional `model` is sent only when every selected harness advertises `--model`. `run_judge_panel` is the manifest workflow: it validates item ids and evidence, runs that swarm, and returns votes, a text-only Jev state, and an optional comparison with human labels. It does not call Jev, render images, or mutate files. `mode: "review"` remains a code review.
+MCP: `swarm_search`, then `swarm_run` with `mode: "judge"` and the evidence `files`. Omit `harnesses` to use every available harness, or pass ids such as `codex` and `agy`. Optional `model` is sent only when every selected harness advertises `--model`. `swarm_panel` is the manifest workflow: it validates item ids and evidence, runs that swarm, and returns votes, a text-only Jev state, and an optional comparison with human labels. It does not call Jev, render images, or mutate files. `mode: "review"` remains a code review.
 
 Judge mode omits git status and diffs, allows image evidence (png, jpg, jpeg, gif, webp) inside the workspace, and still refuses secrets and other binaries. Codex gets `--image`. Claude gets `--tools Read` and `--add-dir`. Antigravity gets `--add-dir` and no permission-skip flag.
 

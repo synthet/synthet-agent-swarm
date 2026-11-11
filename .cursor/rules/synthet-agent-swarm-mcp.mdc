@@ -10,7 +10,7 @@ When changing [agent-orchestrator/](agent-orchestrator/):
 
 - Keep **review-only** defaults: `allowWrites: false`, Codex `read-only` sandbox, no bypass flags.
 - Do not use `shell: true` in `commandRunner` without documented justification.
-- MCP tools: `swarm_search`, `swarm_run`, `run_judge_panel`, plus aliases `detect_subagents`, `run_subagent`, `run_judge_swarm`. Update [docs/api.md](../../docs/api.md) and the subagent-review skill if schemas change.
+- MCP tools use the `swarm_` prefix: `swarm_search`, `swarm_run`, `swarm_sessions`, `swarm_panel`, `swarm_decide`, `swarm_choice`, `swarm_score`, `swarm_noul`, `swarm_system_one`. Update [docs/api.md](../../docs/api.md) and the subagent-review skill if schemas change.
 - Run `npm run build` and `npm test` before finishing.
 - After MCP surface changes, remind user to reload MCP in Cursor.
 

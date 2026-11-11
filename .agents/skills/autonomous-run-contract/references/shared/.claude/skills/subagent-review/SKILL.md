@@ -1,6 +1,6 @@
 ---
 name: subagent-review
-description: Use when the user requests external CLI review, codex/gemini review, a subagent panel, tie-breaker, or invokes /check-subagents, /run-codex-review, /run-gemini-review, or /run-subagent-review. Runs detect_subagents and review-mode subagents, then summarizes findings.
+description: Use when the user requests external CLI review, codex/gemini review, a subagent panel, tie-breaker, or invokes /check-subagents, /run-codex-review, /run-gemini-review, or /run-subagent-review. Runs swarm_search and review-mode subagents, then summarizes findings.
 capability: "subagent-review agent asset workflow"
 side_effect_level: external_export
 approval_required: true
@@ -20,30 +20,30 @@ Run external CLI coding agents **through the synthet-agent-swarm MCP server** �
 
 ## Step 1 — Resolve MCP server
 
-Before `CallMcpTool`, find the enabled server where `serverName` is `synthet-agent-swarm` (project key **`cli-review`**; user-level keys may also appear). Read tool schemas from `mcps/*/tools/detect_subagents.json` and `run_subagent.json`. Prefer the **project** server so `WORKSPACE_ROOT` is this repo.
+Before `CallMcpTool`, find the enabled server where `serverName` is `synthet-agent-swarm` (project key **`cli-review`**; user-level keys may also appear). Read tool schemas from `mcps/*/tools/swarm_search.json` and `swarm_run.json`. Prefer the **project** server so `WORKSPACE_ROOT` is this repo.
 
 ## Step 2 — Detect
 
-Call **`detect_subagents`** (no arguments). Present a short table:
+Call **`swarm_search`** (no arguments). Present a short table:
 
 | Agent | Available | Mode | Notes |
 |-------|-----------|------|-------|
 
-Note: **Claude** is detection-only in v0.1 — do not rely on it for live `run_subagent`.
+Note: **Claude** is detection-only in v0.1 — do not rely on it for live `swarm_run`.
 
 ## Step 3 — Build request
 
 - **task** — clear review goal (from user or slash command text)
-- **files** — workspace-relative paths from `@` mentions (max 20; no `.env`, keys, binaries). Before calling `run_subagent`, validate the exact file list from the repo root with `python scripts/agent_policy/validate_export.py --external-export --approval-marker APPROVED_EXTERNAL_EXPORT <files...>` and stop if it fails.
+- **files** — workspace-relative paths from `@` mentions (max 20; no `.env`, keys, binaries). Before calling `swarm_run`, validate the exact file list from the repo root with `python scripts/agent_policy/validate_export.py --external-export --approval-marker APPROVED_EXTERNAL_EXPORT <files...>` and stop if it fails.
 - **mode** — `review` (default) or `tie-breaker` when comparing opinions
 - **allowWrites** — always `false`
 - **dryRun** — `true` when user says “dry run” or you are validating setup
 
 ## Step 4 — Run
 
-Call **`run_subagent`** with JSON per [references/mcp-tools.md](references/mcp-tools.md).
+Call **`swarm_run`** with JSON per [references/mcp-tools.md](references/mcp-tools.md).
 
-For a “panel” (user wants both agents): run **sequentially** — codex then gemini (or vice versa) with the same `task` and `files`. There is no `run_subagent_panel` tool in v0.1.
+For a “panel” (user wants both agents): run **sequentially** — codex then gemini (or vice versa) with the same `task` and `files`. There is no `swarm_run_panel` tool in v0.1.
 
 ## Step 5 — Read results
 
@@ -75,7 +75,7 @@ Do **not** apply patches unless the user explicitly asks.
 
 | Situation | Action |
 |-----------|--------|
-| Agent not on PATH | Report `detect_subagents` notes; suggest install/auth |
+| Agent not on PATH | Report `swarm_search` notes; suggest install/auth |
 | `allowWrites` rejected | Explain v0.1 is review-only |
 | Claude run requested | Use Codex or Gemini instead |
 | MCP server missing | [docs/EXTERNAL_CLI_REVIEWS.md](../../../docs/EXTERNAL_CLI_REVIEWS.md); build sibling orchestrator |

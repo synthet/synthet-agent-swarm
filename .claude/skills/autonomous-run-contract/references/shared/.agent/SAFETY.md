@@ -35,7 +35,7 @@
 
 ## External CLI reviews (synthet-agent-swarm)
 
-- Review-only: never set `allowWrites: true` on `run_subagent`.
+- Review-only: never set `allowWrites: true` on `swarm_run`.
 - Selected source files are sent to external providers (e.g. Codex / Gemini) per their policies;
   do not use for proprietary code you cannot export.
 - Never include `secrets.json`, `.env`, credentials, or a full `config.json` in `task`, `files`, or

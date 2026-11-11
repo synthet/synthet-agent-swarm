@@ -8,7 +8,8 @@ export type HarnessId =
   | "agy"
   | "cursor"
   | "gemini"
-  | "grok";
+  | "grok"
+  | "ant";
 
 export type SwarmTransport = "cli" | "acp";
 

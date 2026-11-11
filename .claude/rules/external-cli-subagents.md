@@ -7,14 +7,15 @@ External CLI agents are **read-only judges**. `swarm_run` runs one shared judgem
 - Use MCP server **synthet-agent-swarm** tools only:
   - `swarm_search` - harness catalog. Optional `query`
   - `swarm_run` - one task. Omit `harnesses` for every available harness
-  - `run_judge_panel` - manifest workflow. Does not call Jev
-- `detect_subagents`, `run_subagent`, and `run_judge_swarm` remain as compatibility wrappers.
+  - `swarm_panel` - manifest workflow. Does not call Jev
+  - `swarm_sessions` - runs and harness sessions
+  - `swarm_decide`, `swarm_choice`, `swarm_score`, `swarm_noul`, `swarm_system_one` - typed text questions on a local harness. Not the paid Jev service
 - Server identifier for `CallMcpTool` may be `user-synthet-agent-swarm` or `project-0-synthet-agent-swarm-synthet-agent-swarm`; confirm via enabled MCP / `SERVER_METADATA.json` (`serverName`: `synthet-agent-swarm`).
 - Read tool schemas under `mcps/*/tools/` before calling.
 
 ## Do not
 
-- Run `codex exec`, `agy -p`, `claude -p`, or `agent` in the integrated terminal **unless the user explicitly asks to bypass the orchestrator**.
+- Run `codex exec`, `agy -p`, `claude -p`, `ant messages create`, or `agent` in the integrated terminal **unless the user explicitly asks to bypass the orchestrator**.
 - Set `allowWrites: true` (rejected). ACP permission requests are denied.
 - Pass API keys, tokens, or `.env` content in `task` or `extraContext`.
 - Auto-apply patches from external agent output without user approval.
@@ -23,12 +24,12 @@ External CLI agents are **read-only judges**. `swarm_run` runs one shared judgem
 
 1. `swarm_search` before the first live run in a session.
 2. Prefer `dryRun: true` when validating setup.
-3. For a blind judgement or a review, call `swarm_run`. Pass `harnesses`, `model`, and `transport` only when the user asked. For a manifest, call `run_judge_panel`.
+3. For a blind judgement or a review, call `swarm_run`. Pass `harnesses`, `model`, and `transport` only when the user asked. For a manifest, call `swarm_panel`.
 4. Read `.agent-runs/` output. Swarm agreement is evidence. Code-review findings use severity blocker | high | medium | low | nit.
 
 ## Harnesses
 
-`codex`, `claude`, `agy`, `cursor`, `gemini`, and `grok`. `agy` is Antigravity. `agent` selects `cursor`. `gemini` selects the Gemini CLI when that row is available, otherwise `agy`. Default transport is `auto`: one-shot CLI when help shows exec or print mode, otherwise ACP when that command is already on PATH.
+`codex`, `claude`, `agy`, `cursor`, `gemini`, `grok`, and `ant`. `agy` is Antigravity. `agent` selects `cursor`. `gemini` selects the Gemini CLI when that row is available, otherwise `agy`. `ant` is one Claude Messages API call through the signed-in `ant` profile. Default transport is `auto`: one-shot CLI when help shows exec or print mode, otherwise ACP when that command is already on PATH.
 
 ## Related
 

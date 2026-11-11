@@ -6,7 +6,7 @@ Votes are evidence. A field is agreed only when at least two judges share a stri
 
 Only successful harness results vote. Strict majority means more than half of valid answers to that item and field, with at least two identical votes; a 2–1–1 split is disputed. Failed stdout is retained as diagnostic evidence. Aliases resolving to the same harness launch it once.
 
-Registered tools: `swarm_search`, `swarm_run`, `swarm_decide`, `swarm_sessions`, `run_judge_panel`, `detect_subagents`, `run_subagent`, `run_judge_swarm`.
+Registered tools: `swarm_search`, `swarm_run`, `swarm_sessions`, `swarm_panel`, `swarm_decide`, `swarm_choice`, `swarm_score`, `swarm_noul`, `swarm_system_one`.
 
 ## swarm_search
 
@@ -28,6 +28,7 @@ Each row has `id`, `title`, `command`, `available`, `transports` (`cli` or `acp`
 | `cursor` | `agent` print mode only when help shows it | `agent acp` |
 | `gemini` | `gemini` print mode when the binary exists | only if help shows an ACP mode |
 | `grok` | none | `grok agent stdio` |
+| `ant` | `ant messages create` | none |
 
 `npm run detect` prints this catalog.
 
@@ -143,7 +144,7 @@ Lists runs and sessions. It contains no prompts or replies.
 
 ## swarm_decide
 
-Fast, zero-tool Jev-compatible structured decision engine (`noul`, `choice`, `score`) over lightweight flash coding models (`claude` $\to$ `haiku`, `codex` $\to$ `gpt-6-luna`, `cursor` $\to$ `composer-2.5`, `agy` $\to$ `gemini-3.8-flash-medium`, `grok` $\to$ `grok-build-0.1`).
+Fast, zero-tool Jev-compatible structured decision engine (`noul`, `choice`, `score`) over lightweight flash coding models (`claude` $\to$ `haiku`, `codex` $\to$ `gpt-6-luna`, `cursor` $\to$ `composer-2.5`, `agy` $\to$ `gemini-3.8-flash-medium`, `grok` $\to$ `grok-build-0.1`, `ant` $\to$ `claude-haiku-5-5`).
 
 | Field | Role |
 |---|---|
@@ -154,7 +155,20 @@ Fast, zero-tool Jev-compatible structured decision engine (`noul`, `choice`, `sc
 | `timeoutMs` | Default 6000 ms. |
 | `dryRun` | Default false. |
 
-## run_judge_panel
+## swarm_noul, swarm_choice, swarm_score, swarm_system_one
+
+Same text questions as jev-mcp, answered by a local harness through `swarm_decide`. These tools do not call TypeSafe. Images and box questions are not accepted.
+
+| Tool | Question |
+|---|---|
+| `swarm_noul` | One yes/no probability. Optional `criteria` object. |
+| `swarm_choice` | One label. `criteria` is a non-empty object of option to description. |
+| `swarm_score` | One score from 0 to N-1. `criteria` is an ordered low-to-high list. |
+| `swarm_system_one` | A non-empty `questions` map of those three types. |
+
+Each single-question tool takes `state`, `instructions`, and optional `question_id` (default `answer`), `model`, `harnesses`, `timeoutMs`, and `dryRun`. A success returns `{ ok: true, result: { model, answers, votes } }`. `instructions` is required. A choice criteria list, a score criteria object, and a question with no instructions are rejected.
+
+## swarm_panel
 
 Frozen manifest workflow. Adds optional `harnesses`, `model`, `modelChains`, and `transport` to the existing item list. Judges report `model`, `reportedModel` and `attempts`. Blind is the default. Blind panels reject `extraContext`. Human labels are not shown to judges. The response always has `stages.jev.called: false` and `stages.rules.applied: false`. The text-only `stages.jev.state` is for the caller’s own `jev_system_one` call.
 
@@ -166,13 +180,9 @@ Blind mode omits git context and rejects `extraContext`; it does not anonymize f
 
 Run, swarm and panel artifact directories have a unique suffix after the timestamp/harness/task prefix, so repeated same-second calls do not overwrite earlier evidence.
 
-## Aliases
-
-`detect_subagents`, `run_subagent`, and `run_judge_swarm` call the same functions and return the previous JSON shape. `antigravity` in those responses is the `agy` harness. New callers use `swarm_search` and `swarm_run`.
-
 ## Config
 
-`allowedAgents` in `.agent-orchestrator.json` replaces the default list. A file that names only `codex`, `antigravity`, and `claude` does not select `cursor`, `gemini`, or `grok`. `antigravity` and `agy` are the same harness.
+`allowedAgents` in `.agent-orchestrator.json` replaces the default list. A file that names only `codex`, `antigravity`, and `claude` does not select `cursor`, `gemini`, `grok`, or `ant`. `antigravity` and `agy` are the same harness. `ant` sends one Messages API request with the signed-in `ant` profile. When the run names no model, that request uses `claude-opus-5-5`. Omitting `harnesses` probes that API with one token: credits keep `ant` and skip `claude`; a no-credit response keeps `claude -p` and skips `ant`. A named harness list is unchanged.
 
 ## Reload
 

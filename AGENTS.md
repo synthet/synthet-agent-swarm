@@ -1,6 +1,6 @@
 # AGENTS.md - synthet-agent-swarm
 
-This repository is a **local MCP swarm of read-only LLM judges**. Harnesses are `codex`, `claude`, `agy` (Antigravity), `cursor` (`agent`), `gemini`, and `grok`. One shared judgement is fanned out, raw replies are stored, and strict-majority agreement is reported when two or more harnesses run. Ties stay disputed. Votes are not ground truth.
+This repository is a **local MCP swarm of read-only LLM judges**. Harnesses are `codex`, `claude`, `agy` (Antigravity), `cursor` (`agent`), `gemini`, `grok`, and `ant` (Claude Messages API). One shared judgement is fanned out, raw replies are stored, and strict-majority agreement is reported when two or more harnesses run. Ties stay disputed. Votes are not ground truth.
 
 Code review remains available as `mode: "review"`. The image-scoring usage this follows is [docs/judges-swarm.md](docs/judges-swarm.md). The tool contract is [docs/api.md](docs/api.md).
 
@@ -10,7 +10,7 @@ Code review remains available as `mode: "review"`. The image-scoring usage this 
 2. Enable MCP: project [`.cursor/mcp.json`](.cursor/mcp.json) and/or global `~/.cursor/mcp.json` with `synthet-agent-swarm`
 3. Reload MCP in Cursor (Settings -> Tools & MCP)
 
-MCP tools: `swarm_search`, `swarm_run`, `run_judge_panel`. Aliases `detect_subagents`, `run_subagent`, and `run_judge_swarm` keep the previous JSON shape. See [docs/api.md](docs/api.md).
+MCP tools: `swarm_search`, `swarm_run`, `swarm_sessions`, `swarm_panel`, `swarm_decide`, `swarm_choice`, `swarm_score`, `swarm_noul`, `swarm_system_one`. See [docs/api.md](docs/api.md).
 
 ## Cursor integration map
 
@@ -25,7 +25,7 @@ MCP tools: `swarm_search`, `swarm_run`, `run_judge_panel`. Aliases `detect_subag
 
 | Command | When to use |
 |---------|-------------|
-| [`/swarm`](.cursor/commands/swarm.md) | Search harnesses, then run a review, a judge swarm, or `run_judge_panel` |
+| [`/swarm`](.cursor/commands/swarm.md) | Search harnesses, then run a review, a judge swarm, or `swarm_panel` |
 
 Older command names (`/check-subagents`, `/run-codex-review`, `/run-antigravity-review`, `/run-gemini-review`, `/run-subagent-review`) are stubs that point here.
 
@@ -33,7 +33,7 @@ Older command names (`/check-subagents`, `/run-codex-review`, `/run-antigravity-
 
 | Name | File | Role |
 |------|------|------|
-| `external-swarm` | [`.cursor/agents/external-swarm.md`](.cursor/agents/external-swarm.md) | `swarm_search`, then `swarm_run` or `run_judge_panel` |
+| `external-swarm` | [`.cursor/agents/external-swarm.md`](.cursor/agents/external-swarm.md) | `swarm_search`, then `swarm_run` or `swarm_panel` |
 
 `external-codex-review`, `external-antigravity-review`, `external-gemini-review`, and `external-cli-reviewer` are stubs that point at `external-swarm`.
 

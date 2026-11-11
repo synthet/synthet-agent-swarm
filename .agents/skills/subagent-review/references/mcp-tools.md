@@ -2,7 +2,7 @@
 
 Server display name: **synthet-agent-swarm**. The field contract is `docs/api.md` in the synthet-agent-swarm checkout.
 
-Tools are read-only. `swarm_search` lists harnesses. `swarm_run` runs one task. `swarm_sessions` lists runs and sessions. `run_judge_panel` runs a frozen manifest. The server does not call Jev or render images.
+Tools are read-only. `swarm_search` lists harnesses. `swarm_run` runs one task. `swarm_sessions` lists runs and sessions. `swarm_panel` runs a frozen manifest. The server does not call Jev or render images.
 
 ## swarm_search
 
@@ -72,7 +72,7 @@ Returns `active` and `recent` runs of this server, `stored` per-harness results 
 
 `synthet-agent-swarm run --request <file.json|->` takes one `swarm_run` request as JSON, so no prompt is on the command line. It prints one JSON line: the `swarm_run` response plus `reply`. Exit 0 ok, 1 run failed, 2 invalid request.
 
-## run_judge_panel
+## swarm_panel
 
 Same manifest as before, plus optional `harnesses`, `model`, and `transport`. Blind is the default and rejects `extraContext`. `stages.jev.called` and `stages.rules.applied` stay false.
 
@@ -85,9 +85,9 @@ Same manifest as before, plus optional `harnesses`, `model`, and `transport`. Bl
 }
 ```
 
-## Aliases
+## Typed questions
 
-`detect_subagents`, `run_subagent`, and `run_judge_swarm` call the same functions and return the previous JSON shape. `antigravity` in those responses is the `agy` harness.
+`swarm_choice`, `swarm_score`, and `swarm_noul` each take `state`, `instructions`, and `question_id` (default `answer`). Choice criteria is an object. Score criteria is an ordered list. Noul criteria is an optional object. `swarm_system_one` takes a `questions` map of those three types. `swarm_decide` accepts the same types with a looser criteria shape and returns `answers` at the top level. None of these call the paid Jev service. Images and box questions are not accepted.
 
 ## On-disk artifacts
 

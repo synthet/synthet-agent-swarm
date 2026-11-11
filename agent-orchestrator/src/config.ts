@@ -10,7 +10,7 @@ const DEFAULT_CONFIG: OrchestratorConfig = {
   defaultTimeoutMs: 300000,
   maxTimeoutMs: 900000,
   allowWritesByDefault: false,
-  allowedAgents: ["codex", "antigravity", "claude", "agy", "cursor", "gemini", "grok"],
+  allowedAgents: ["codex", "antigravity", "claude", "agy", "cursor", "gemini", "grok", "ant"],
   workspaceBoundary: ".",
   redactEnv: true,
   storeOutputs: true,

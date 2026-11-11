@@ -291,6 +291,34 @@ describe("model chains", () => {
   });
 });
 
+describe("API credit preference", () => {
+  function ready(id: "claude" | "ant") {
+    return classifyObservation({
+      spec: HARNESS_SPECS.find((item) => item.id === id)!,
+      cliOnPath: true,
+      cliHelp: id === "ant" ? "messages create\n--model string\n" : "-p --print\n--model",
+      version: "test",
+      acpOnPath: false,
+    });
+  }
+
+  it("skips the claude CLI when the caller leaves harnesses unset and credits are available", async () => {
+    vi.mocked(runSubagentForRequest).mockClear();
+    vi.mocked(runSubagentForRequest).mockResolvedValue({
+      agent: "ant", ok: true, exitCode: 0, stdout: "from-api", stderr: "",
+      startedAt: new Date().toISOString(), finishedAt: new Date().toISOString(),
+      durationMs: 1, commandPreview: "ant messages create",
+    });
+    const result = await executeSwarm({
+      task: "ping", observations: [ready("claude"), ready("ant")], apiCredits: "available",
+    });
+    expect(result.ok).toBe(true);
+    expect(result.harnesses.find((row) => row.id === "ant")).toMatchObject({ ok: true, stdout: "from-api" });
+    expect(result.harnesses.find((row) => row.id === "claude")?.summary).toMatch(/credits/);
+    expect(vi.mocked(runSubagentForRequest).mock.calls.map((call) => call[0].agent)).toEqual(["ant"]);
+  });
+});
+
 describe("resume", () => {
   it("rejects resume across more than one harness, in judge mode, or with model chains", async () => {
     for (const input of [
@@ -303,6 +331,38 @@ describe("resume", () => {
       expect(result.ok, JSON.stringify(input)).toBe(false);
       expect(result.error?.code).toBe("invalid_arguments");
     }
+  });
+
+  it("previews one ant Messages request and keeps the prompt off the command line", async () => {
+    const ant = classifyObservation({
+      spec: HARNESS_SPECS.find((item) => item.id === "ant")!,
+      cliOnPath: true,
+      cliHelp: "messages create\n--model string\n",
+      version: "2.9.0",
+      acpOnPath: false,
+    });
+    const result = await executeSwarm({
+      task: "UNIQUE-ANT-PROMPT", dryRun: true, harnesses: ["ant"], observations: [ant],
+    });
+    expect(result.ok).toBe(true);
+    expect(result.harnesses[0].commandPreview).toContain("ant messages create");
+    expect(result.harnesses[0].commandPreview).toContain("--model claude-opus-5-5");
+    expect(result.harnesses[0].commandPreview).not.toContain("UNIQUE-ANT-PROMPT");
+  });
+
+  it("rejects resume for a single Messages API call", async () => {
+    const ant = classifyObservation({
+      spec: HARNESS_SPECS.find((item) => item.id === "ant")!,
+      cliOnPath: true,
+      cliHelp: "messages create\n--model string\n",
+      version: "2.9.0",
+      acpOnPath: false,
+    });
+    const result = await executeSwarm({
+      task: "continue", dryRun: true, harnesses: ["ant"], resumeSessionId: "s-1", observations: [ant],
+    });
+    expect(result.ok).toBe(false);
+    expect(result.error?.message).toMatch(/no session to resume/);
   });
 
   it("passes the session to the one selected harness", async () => {

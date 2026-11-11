@@ -8,6 +8,7 @@ import {
   type HarnessObservation,
   type SwarmError,
 } from "../harness/registry.js";
+import { antMessagesArgv, antMessagesStdin } from "../runners/ant.js";
 import { buildChildEnv, formatCommandPreview, runCommand } from "../services/commandRunner.js";
 import { redactSecrets } from "../services/redaction.js";
 import { resolveExecutableOnPath } from "../services/resolveExecutable.js";
@@ -24,6 +25,7 @@ export const LIGHTWEIGHT_MODELS: Record<HarnessId, string> = {
   agy: "gemini-3.8-flash-medium",
   gemini: "gemini-3.8-flash-medium",
   grok: "grok-build-0.1",
+  ant: "claude-haiku-5-5",
 };
 
 export const questionSpecSchema = z.object({
@@ -195,6 +197,12 @@ export function buildFastDecisionArgv(
     const flag = observation.promptFlag ?? "-p";
     const base = ["agent", flag, prompt, "--mode=ask", "--output-format", "json"];
     return { argv: observation.modelFlag ? applyModel(base, "cursor", model) : base };
+  }
+  if (harness === "ant") {
+    return {
+      argv: antMessagesArgv(model, { maxTokens: 1024, transform: "content.0.text" }),
+      stdin: antMessagesStdin(prompt),
+    };
   }
   const flag = observation.promptFlag ?? "-p";
   const bin = observation.spec.cliArgv?.[0] ?? harness;

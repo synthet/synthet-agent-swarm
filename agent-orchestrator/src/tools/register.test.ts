@@ -18,16 +18,17 @@ describe("tool contract", () => {
     expect(TOOL_NAMES).toEqual([
       "swarm_search",
       "swarm_run",
-      "swarm_decide",
       "swarm_sessions",
-      "run_judge_panel",
-      "detect_subagents",
-      "run_subagent",
-      "run_judge_swarm",
+      "swarm_panel",
+      "swarm_decide",
+      "swarm_choice",
+      "swarm_score",
+      "swarm_noul",
+      "swarm_system_one",
     ]);
   });
 
-  it("publishes every run_judge_panel field through the MCP schema", () => {
+  it("publishes every swarm_panel field through the MCP schema", () => {
     const published: Record<string, { inputSchema: Record<string, unknown> }> = {};
     const server = {
       registerTool(name: string, config: { inputSchema: Record<string, unknown> }) {
@@ -35,9 +36,9 @@ describe("tool contract", () => {
       },
     };
     registerSwarmTools(server as unknown as Parameters<typeof registerSwarmTools>[0]);
-    expect(Object.keys(published.run_judge_panel.inputSchema).sort()).toEqual(
+    expect(Object.keys(published.swarm_panel.inputSchema).sort()).toEqual(
       Object.keys(runJudgePanelInputSchema.innerType().shape).sort(),
     );
-    expect(published.run_judge_panel.inputSchema).toHaveProperty("modelChains");
+    expect(published.swarm_panel.inputSchema).toHaveProperty("modelChains");
   });
 });

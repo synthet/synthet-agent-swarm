@@ -32,6 +32,23 @@ describe("parseHarnessOutput", () => {
     expect(parsed).toMatchObject({ text: "done", sessionId: "s-2", denials: 1 });
   });
 
+  it("reads an ant message and classifies an authentication error", () => {
+    const parsed = parseHarnessOutput("ant-json", JSON.stringify({
+      type: "message",
+      content: [{ type: "text", text: "Pong" }, { type: "thinking", thinking: "hidden" }],
+      usage: { output_tokens: 5 },
+    }));
+    expect(parsed).toMatchObject({ text: "Pong", structured: true, denials: 0 });
+    const auth = parseHarnessOutput("ant-json", JSON.stringify({
+      type: "error",
+      error: { type: "authentication_error", message: "x-api-key header is required" },
+    }));
+    expect(auth.failure).toBe("authentication_error: x-api-key header is required");
+    expect(classifyOutcome({
+      exitCode: 1, stderr: "", parsed: auth,
+    })).toBe("auth_required");
+  });
+
   it("reports a Claude error result as a failure", () => {
     const parsed = parseHarnessOutput("claude-json", JSON.stringify({
       type: "result", subtype: "error_max_turns", is_error: true, result: "",

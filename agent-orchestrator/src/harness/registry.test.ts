@@ -56,6 +56,22 @@ describe("harness identity", () => {
   });
 });
 
+describe("ant", () => {
+  it("accepts messages create help as a CLI transport that advertises --model", () => {
+    const row = classifyObservation({
+      spec: spec("ant"),
+      cliOnPath: true,
+      acpOnPath: false,
+      cliHelp: "messages create\n--model string\n",
+      version: "ant version 2.9.0",
+    });
+    expect(row.transports).toEqual(["cli"]);
+    expect(row.modelFlag).toBe("--model");
+    expect(row.cliMode).toBe("exec");
+    expect(row.available).toBe(true);
+  });
+});
+
 describe("resolveHarnessId", () => {
   it("resolves gemini to agy when the gemini row is not available", () => {
     const observations = [

@@ -1,4 +1,5 @@
 import type { OrchestratorConfig, SubagentRequest, SubagentResult } from "../types.js";
+import { runAnt } from "./ant.js";
 import { runClaude } from "./claude.js";
 import { runCodex } from "./codex.js";
 import { runAntigravity } from "./antigravity.js";
@@ -14,6 +15,8 @@ export async function runSubagentForRequest(
       return runAntigravity(request, config);
     case "claude":
       return runClaude(request, config);
+    case "ant":
+      return runAnt(request, config);
     default:
       return {
         agent: request.agent,

@@ -80,7 +80,7 @@ export function invalidArguments(issues: unknown): { ok: false; error: SwarmErro
       "invalid_arguments",
       "The tool arguments did not match the schema.",
       { issues },
-      ["Check docs/api.md for swarm_search, swarm_run, and run_judge_panel."],
+      ["Check docs/api.md for swarm_search, swarm_run, and swarm_panel."],
     ),
   };
 }

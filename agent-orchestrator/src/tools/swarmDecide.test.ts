@@ -17,6 +17,7 @@ describe("swarmDecide", () => {
     expect(resolveLightweightModel("cursor", "flash")).toBe("composer-2.5");
     expect(resolveLightweightModel("agy", "auto")).toBe("gemini-3.8-flash-medium");
     expect(resolveLightweightModel("grok")).toBe("grok-build-0.1");
+    expect(resolveLightweightModel("ant")).toBe("claude-haiku-5-5");
     expect(resolveLightweightModel("claude", "claude-sonnet-5-5")).toBe("claude-sonnet-5-5");
     expect(Object.keys(LIGHTWEIGHT_MODELS)).toContain("claude");
   });

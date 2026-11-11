@@ -12,7 +12,7 @@ Harness ids: `codex`, `claude`, `agy`, `cursor`, `gemini`, `grok`. `antigravity`
 
 1. Read the tool schemas, then call `swarm_search`. Optional `query` matches id, title, command, transport, and notes.
 2. For a review or one judgement, call `swarm_run`. Omit `harnesses` to use every available harness. Set `transport` to `auto`, `cli`, or `acp` only when the user asked. Set `mode` to `review` unless the user asked for `judge`.
-3. For a frozen manifest of item ids and evidence files, call `run_judge_panel` with the same `harnesses`, `model`, and `transport`. Blind panels reject `extraContext`.
+3. For a frozen manifest of item ids and evidence files, call `swarm_panel` with the same `harnesses`, `model`, and `transport`. Blind panels reject `extraContext`.
 4. Read `.agent-runs/` output. Summarize findings with severity blocker, high, medium, low, or nit. Agreement is evidence, not a human label.
 5. Do not apply patches unless the user asks.
 

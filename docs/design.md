@@ -28,7 +28,7 @@ flowchart LR
   store --> votes[agreeVotes]
 ```
 
-`run_judge_panel` is the same run wrapped around a frozen item manifest. The three older tool names call the same functions and return the previous JSON shape.
+`swarm_panel` is the same run wrapped around a frozen item manifest. `swarm_decide`, `swarm_choice`, `swarm_score`, `swarm_noul`, and `swarm_system_one` answer typed text questions on a local harness. They do not call the paid Jev service.
 
 ## Modules
 
@@ -62,6 +62,7 @@ Codex, Claude, and Antigravity one-shot CLIs go through [agent-orchestrator/src/
 | `cursor` | `agent` print mode only when help shows `-p`, `--print`, or `--prompt` | `agent acp` |
 | `gemini` | `gemini` print mode when the binary exists and help shows a print flag | the same binary with `acp` when help shows an ACP mode |
 | `grok` | none | `grok agent stdio` |
+| `ant` | `ant messages create`. One Messages API call. The prompt is stdin. No tools. | none |
 
 Aliases resolve before a run:
 
@@ -76,6 +77,8 @@ Judge-mode attachments, applied only on the CLI path:
 - Codex receives each image with `--image`, and `--cd` when help shows that flag.
 - Claude receives `--tools Read` and `--add-dir` for evidence directories, at most eight directories.
 
+`ant` is the Claude Messages API through the signed-in `ant` profile. A run that does not name a model uses `claude-opus-5-5`. `ANTHROPIC_API_KEY` in the environment replaces that sign-in. Resume is rejected because each call is a new request. Judge mode lists evidence paths and does not attach file bytes, so a blind image panel should name `ant` only when the task text is enough. Omitting `harnesses` plans both `claude` and `ant` when they are allowed. A one-token probe then keeps `ant` when the API has credits and keeps `claude -p` when the API reports no credits. An unknown probe result leaves both. A named `harnesses` list is unchanged. `swarm_panel` still defaults to `codex`, `agy`, and `claude`.
+
 Every `claude -p` run is unattended: `--output-format json --permission-mode dontAsk --permission-prompts none --strict-mcp-config`, so anything that would prompt is denied and no user or project MCP server starts. `claude.maxBudgetUsd` in config adds `--max-budget-usd`. `--bare` is never used, because it skips the logged-in account.
 - Antigravity receives `--add-dir` and stays on its non-interactive prompt flag.
 
@@ -87,7 +90,7 @@ An ACP session answers `session/request_permission` with `outcome: cancelled`, e
 
 Omit `harnesses` to run every allowed harness that has the resolved transport. An empty result is `harness_unavailable` for the whole call. Duplicate ids are dropped.
 
-`unknown_harness` fails the whole call before any spawn. So does `model_unsupported`: a `model` value is sent only when every selected runnable harness advertises `--model` in its help text. Codex inserts `--model` before the prompt. Other harnesses insert it after the binary.
+`unknown_harness` fails the whole call before any spawn. So does `model_unsupported`: a `model` value is sent only when every selected runnable harness advertises `--model` in its help text. Codex inserts `--model` before the prompt. `ant` places `--model` on `messages create`. Other harnesses insert it after the binary.
 
 A named harness that is missing, disallowed, or lacking the requested transport is a skip row. The other harnesses still run. `ok` is true when at least one harness succeeds. On a dry run, `ok` is true only when every selected harness can be previewed, and no process is spawned.
 
@@ -111,7 +114,7 @@ A field is agreed when one value has at least two votes and strictly more votes 
 
 ## Panel
 
-`run_judge_panel` validates a frozen manifest, then calls the same swarm in `judge` mode.
+`swarm_panel` validates a frozen manifest, then calls the same swarm in `judge` mode.
 
 - One to twenty items. Each id matches `^[A-Za-z0-9][A-Za-z0-9._-]{0,199}$` and ids are unique.
 - Each item has one to twenty files. The union of files is at most twenty.
@@ -136,22 +139,20 @@ A panel summary is stored at `.agent-runs/<timestamp>-panel-<slug>/panel.json`.
 
 Each harness writes `.agent-runs/<timestamp>-<id>-<slug>/` with `stdout.md`, `stderr.log`, `request.json`, and `result.json`. The swarm summary is `.agent-runs/<timestamp>-swarm-<slug>/swarm.json`. Slugs are lowercase, at most 40 characters. Stored text passes through redaction for common key, token, bearer, and private-key shapes. Prompts are stored only when `storePrompts` is true. The default is false. `storeOutputs: false` skips all of these files.
 
-Config merges in this order: code defaults, [agent-orchestrator/config.default.json](../agent-orchestrator/config.default.json), then `.agent-orchestrator.json` in the workspace root. A workspace `allowedAgents` list replaces the default. `antigravity` and `agy` count as the same harness, and `agent` counts as `cursor`. A file that names only `codex`, `antigravity`, and `claude` leaves out `cursor`, `gemini`, and `grok`.
+Config merges in this order: code defaults, [agent-orchestrator/config.default.json](../agent-orchestrator/config.default.json), then `.agent-orchestrator.json` in the workspace root. A workspace `allowedAgents` list replaces the default. `antigravity` and `agy` count as the same harness, and `agent` counts as `cursor`. A file that names only `codex`, `antigravity`, and `claude` leaves out `cursor`, `gemini`, `grok`, and `ant`.
 
 On timeout the runner stops the whole process tree, not only the direct child: `taskkill /PID <pid> /T /F` on Windows, and a signal to the child's process group elsewhere (children start detached). ACP peers are stopped the same way. `concurrency.perHarness`, default 2, caps concurrent runs of one harness inside one server process; further runs wait for a slot.
 
 Timeouts clamp to at least 1 second and at most `maxTimeoutMs`. The defaults are 300 seconds and 900 seconds. Detection uses `detectionTimeoutMs`, default 10 seconds. `codex.jsonOutput` adds `--json` only when that flag appears in Codex help. The default is true; the JSONL events are parsed into the reply text, thread id and usage (see `outcome` in [api.md](api.md)).
 
-## Compatibility
+## CLI
 
-| Surface | Behavior |
+| Command | Behavior |
 |---|---|
-| `detect_subagents` | Legacy detection records for Codex, Antigravity, and Claude |
-| `run_subagent` | One of those three, read-only, previous JSON shape |
-| `run_judge_swarm` | Same judgement and agreement, previous JSON shape. `antigravity` in the response is the `agy` harness |
-| CLI `detect` | Prints the `swarm_search` catalog |
-| CLI `run` | One legacy agent |
-| CLI `swarm` | Legacy judge wrapper. New callers use `swarm_search` and `swarm_run` |
+| `detect` | Prints the `swarm_search` catalog |
+| `run` | One legacy agent. MCP callers use `swarm_run` |
+| `swarm` | Legacy judge wrapper. MCP callers use `swarm_search` and `swarm_run` |
+| `decide` | One `swarm_decide` request |
 
 Tool annotations mark every tool read-only. Error codes are `unknown_harness`, `harness_unavailable`, `model_unsupported`, `transport_unavailable`, `path_rejected`, `timeout`, `acp_protocol`, and `invalid_arguments`. Shapes and retry flags are in [api.md](api.md).
 

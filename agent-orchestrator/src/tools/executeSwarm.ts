@@ -13,6 +13,7 @@ import {
   type SwarmError,
   type TransportChoice,
 } from "../harness/registry.js";
+import { antMessagesArgv } from "../runners/ant.js";
 import { buildAntigravityArgv } from "../runners/antigravity.js";
 import { buildClaudeArgv } from "../runners/claude.js";
 import { buildCodexArgv } from "../runners/codex.js";
@@ -35,6 +36,7 @@ import {
   storeSwarmSummary,
 } from "../services/resultStore.js";
 import { redactSecrets } from "../services/redaction.js";
+import { applyCreditPreference, probeApiCredits, type ApiCreditStatus } from "../services/apiCredits.js";
 import { agreeVotes, type SwarmAgreement } from "../services/votes.js";
 import { captureWorkspaceSnapshot } from "../services/workspaceSnapshot.js";
 import { trailingHarnessError, type OutputFormat, type RunOutcome } from "../services/eventParse.js";
@@ -63,6 +65,8 @@ export interface ExecuteSwarmInput {
   resumeSessionId?: string;
   /** Per-run spend cap where the harness supports one. */
   budgetUsd?: number;
+  /** Test hook. Skips the live credit probe. */
+  apiCredits?: ApiCreditStatus;
 }
 
 export interface HarnessRunRow {
@@ -178,6 +182,7 @@ function commandArgv(
   if (plan.id === "agy") {
     return buildAntigravityArgv(prompt, detection, dirs, plan.model, request.resumeSessionId);
   }
+  if (plan.id === "ant") return antMessagesArgv(plan.model);
   if (plan.id === "claude") {
     return buildClaudeArgv(prompt, dirs, plan.model, {
       maxBudgetUsd: request.budgetUsd ?? config.claude?.maxBudgetUsd,
@@ -236,7 +241,7 @@ async function runPlan(
     };
   }
 
-  if (plan.transport === "cli" && (plan.id === "codex" || plan.id === "agy" || plan.id === "claude")) {
+  if (plan.transport === "cli" && (plan.id === "codex" || plan.id === "agy" || plan.id === "claude" || plan.id === "ant")) {
     const legacyAgent = plan.id === "agy" ? "antigravity" : plan.id;
     const result = await runSubagentForRequest(
       { ...request, agent: legacyAgent, model: plan.model },
@@ -493,8 +498,18 @@ export async function executeSwarm(input: ExecuteSwarmInput): Promise<SwarmRunRe
     });
   };
 
+  const implicit = !input.harnesses || input.harnesses.length === 0;
+  let steps = planned.steps;
+  if (implicit && mode !== "respond" && hasClaudeAndAnt(steps)) {
+    const status = input.apiCredits ?? (dryRun ? "unknown" : await probeApiCredits(
+      workspaceRoot,
+      Math.min(config.detectionTimeoutMs, 20_000),
+    ));
+    steps = applyCreditPreference(steps, status);
+  }
+
   const harnesses = await Promise.all(
-    planned.steps.map(async (step): Promise<HarnessRunRow> => {
+    steps.map(async (step): Promise<HarnessRunRow> => {
       try {
         return await executeStep(step, request, config, promptFor);
       } catch (err) {
@@ -572,6 +587,11 @@ export const RESPOND_HARNESSES = ["claude", "codex", "cursor"] as const;
 /** A responder may read and search; every other tool call is rejected. */
 const RESPOND_ACP_POLICY = { allowKinds: ["read", "search"] };
 
+function hasClaudeAndAnt(steps: PlanStep[]): boolean {
+  const ids = new Set(steps.flatMap((step) => (step.kind === "run" ? [step.plan.id] : [])));
+  return ids.has("claude") && ids.has("ant");
+}
+
 function respondProblem(input: ExecuteSwarmInput, steps: PlanStep[]): string | null {
   if ((input.harnesses?.length ?? 0) !== 1 || steps.length !== 1) return "respond mode needs exactly one harness.";
   const step = steps[0];
@@ -596,6 +616,9 @@ function resumeProblem(input: ExecuteSwarmInput, steps: PlanStep[], mode: Subage
   const step = steps[0];
   if (step?.kind === "run" && step.plan.transport === "cli" && step.plan.id === "gemini") {
     return "The gemini CLI runner has no resume flag.";
+  }
+  if (step?.kind === "run" && step.plan.id === "ant") {
+    return "The ant runner sends one Messages API request and has no session to resume.";
   }
   return null;
 }

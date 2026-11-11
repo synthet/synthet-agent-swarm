@@ -50,6 +50,6 @@ old PATH and won't see the agents.
   key.
 
 ## Usage
-Drive live reviews with `/swarm`: `swarm_search`, then `swarm_run` or `run_judge_panel`. The older `/check-subagents`, `/run-codex-review`,
+Drive live reviews with `/swarm`: `swarm_search`, then `swarm_run` or `swarm_panel`. The older `/check-subagents`, `/run-codex-review`,
 `/run-antigravity-review`, and `/run-subagent-review` commands are compatibility stubs. See backend
 [`docs/technical/EXTERNAL_CLI_REVIEWS.md`](https://github.com/synthet/image-scoring-pipeline/blob/main/docs/technical/EXTERNAL_CLI_REVIEWS.md).

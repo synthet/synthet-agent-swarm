@@ -1,6 +1,6 @@
 ---
 name: external-swarm
-description: Run a read-only swarm_search and swarm_run or run_judge_panel through the synthet-agent-swarm MCP server. Use for external review, a judge panel, or any harness selection.
+description: Run a read-only swarm_search and swarm_run or swarm_panel through the synthet-agent-swarm MCP server. Use for external review, a judge panel, or any harness selection.
 ---
 
 # External swarm
@@ -9,7 +9,7 @@ Use this agent for an external read-only review or judge panel. The harness list
 
 ## Operating rules
 
-- Call `swarm_search` first. Then call `swarm_run`, or `run_judge_panel` when the user supplied item ids and evidence files.
+- Call `swarm_search` first. Then call `swarm_run`, or `swarm_panel` when the user supplied item ids and evidence files.
 - Omit `harnesses` to run every available harness. Pass `harnesses` when the user names providers.
 - Pass `model` only when the user names one. If the tool returns `model_unsupported`, tell the user which harnesses advertise `--model`.
 - Leave `transport` unset unless the user asks for `cli` or `acp`.

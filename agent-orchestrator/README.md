@@ -47,9 +47,8 @@ Reload MCP in Cursor, then use tools:
 
 - `swarm_search` — optional `{ "query": "cursor" }`. Returns short harness rows
 - `swarm_run` — `{ "task": "...", "files": ["blind/a.jpg"], "harnesses": ["codex", "agy"], "dryRun": true }`
-- `run_judge_panel` — `{ "task": "...", "items": [{ "id": "a", "files": ["blind/a.jpg"] }], "dryRun": true }`
-
-`detect_subagents`, `run_subagent`, and `run_judge_swarm` remain as wrappers that return the previous JSON shape.
+- `swarm_panel` — `{ "task": "...", "items": [{ "id": "a", "files": ["blind/a.jpg"] }], "dryRun": true }`
+- `swarm_decide`, `swarm_choice`, `swarm_score`, `swarm_noul`, `swarm_system_one` — typed text questions on a local harness. Not the paid Jev service
 
 **Cursor workflow:** skill [`.cursor/skills/subagent-review`](../.cursor/skills/subagent-review/SKILL.md), slash commands in [`.cursor/commands/`](../.cursor/commands/), index [AGENTS.md](../AGENTS.md).
 
@@ -64,24 +63,17 @@ npm start
 
 | Tool | Description |
 |------|-------------|
-| `swarm_search` | Lists `codex`, `claude`, `agy`, `cursor`, `gemini`, and `grok` with the transports detection found |
-| `swarm_run` | Runs one read-only task. Omit `harnesses` for every available harness. Optional `model` and `transport` |
-| `run_judge_panel` | Manifest workflow: blind swarm, votes, text-only Jev state, optional human comparison. Does not call Jev or mutate files |
+| `swarm_search` | Lists harnesses with the transports detection found |
+| `swarm_run` | Runs one read-only task. Omit `harnesses` for every available harness |
+| `swarm_sessions` | In-flight runs, stored results, and live Claude sessions |
+| `swarm_panel` | Manifest workflow: blind swarm, votes, text-only Jev state. Does not call Jev or mutate files |
+| `swarm_decide` | Batch of noul, choice, and score questions. Looser criteria shape |
+| `swarm_choice` | One choice. Criteria is an object |
+| `swarm_score` | One score. Criteria is an ordered list |
+| `swarm_noul` | One yes/no probability |
+| `swarm_system_one` | Several of those three questions on one state |
 
-`run_subagent` is the compatibility wrapper. New callers use `swarm_run` in [docs/api.md](../docs/api.md).
-
-### `run_subagent` parameters
-
-| Field | Type | Default | Notes |
-|-------|------|---------|-------|
-| `agent` | `codex` \| `antigravity` \| `claude` | required | Claude runs when detection reports print mode |
-| `task` | string | required | Max 8000 chars |
-| `files` | string[] | optional | Workspace-relative; secrets/binaries rejected |
-| `mode` | enum | `review` | `judge` skips git context and allows image evidence |
-| `timeoutMs` | number | 300000 | Clamped to `maxTimeoutMs` (900000) |
-| `allowWrites` | boolean | `false` | **Rejected in v0.1** |
-| `dryRun` | boolean | `false` | Returns command preview only |
-| `extraContext` | string | optional | Max 4000 chars |
+Field shapes are in [docs/api.md](../docs/api.md). The CLI `run` and `swarm` commands remain for a terminal. MCP no longer registers `detect_subagents`, `run_subagent`, or `run_judge_swarm`.
 
 ## Configuration
 

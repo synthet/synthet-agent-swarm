@@ -5,7 +5,7 @@
  * soft-denies with exit 0, and an agy child without a TTY can print nothing at all.
  */
 
-export type OutputFormat = "claude-json" | "cursor-json" | "codex-jsonl" | "agy-json";
+export type OutputFormat = "claude-json" | "cursor-json" | "codex-jsonl" | "agy-json" | "ant-json";
 
 export type RunOutcome =
   | "ok"
@@ -133,6 +133,27 @@ function parseAgyEnvelope(rows: Json[], stdout: string): ParsedOutput {
   };
 }
 
+/** `ant messages create --format json`: a message object, or `{ type: "error", error }`. */
+function parseAntMessage(rows: Json[], stdout: string): ParsedOutput {
+  const errorRow = [...rows].reverse().find((row) => row.type === "error" || isObject(row.error));
+  if (errorRow) {
+    const error = isObject(errorRow.error) ? errorRow.error : errorRow;
+    const kind = str(error.type) ?? "error";
+    const message = str(error.message) ?? "Claude API request failed.";
+    return { text: "", structured: true, denials: 0, failure: `${kind}: ${message}` };
+  }
+  const message = [...rows].reverse().find((row) => row.type === "message" && Array.isArray(row.content));
+  if (!message || !Array.isArray(message.content)) {
+    return { text: stdout, structured: false, denials: 0 };
+  }
+  const text = message.content
+    .filter(isObject)
+    .map((block) => (block.type === "text" ? str(block.text) : undefined))
+    .filter((part): part is string => Boolean(part))
+    .join("\n");
+  return { text, structured: true, usage: message.usage, denials: 0 };
+}
+
 export function parseHarnessOutput(format: OutputFormat | undefined, stdout: string): ParsedOutput {
   if (!format) return { text: stdout, structured: false, denials: 0 };
   const rows = jsonObjects(stdout);
@@ -144,6 +165,8 @@ export function parseHarnessOutput(format: OutputFormat | undefined, stdout: str
       return parseCodexEvents(rows, stdout);
     case "agy-json":
       return parseAgyEnvelope(rows, stdout);
+    case "ant-json":
+      return parseAntMessage(rows, stdout);
   }
 }
 
@@ -157,7 +180,7 @@ export function trailingHarnessError(text: string): string | undefined {
   return /^Error: [A-Za-z]*Error\b.*$/.test(last) ? last.slice(0, 500) : undefined;
 }
 
-const AUTH_RE = /authentication required|not (?:logged|signed) in|please (?:log|sign) in|invalid api key|unauthori[sz]ed|\b401\b/i;
+const AUTH_RE = /authentication required|authentication_error|not (?:logged|signed) in|please (?:log|sign) in|invalid api key|unauthori[sz]ed|\b401\b/i;
 const RATE_RE = /rate.?limit|too many requests|\b429\b|overloaded|quota exceeded/i;
 /** Antigravity prints a stderr notice when a tool needing approval is soft-denied and the run goes on. */
 const SOFT_DENY_RE = /soft-?denied|requires? (?:review|approval)|was not approved|permission (?:was )?denied/i;

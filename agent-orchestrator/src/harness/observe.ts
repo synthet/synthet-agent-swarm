@@ -95,6 +95,9 @@ export async function observeHarnesses(
         if (spec.id === "codex" && !/\bexec\b/.test(cliHelp)) {
           cliHelp = `${cliHelp}\n${await helpText([cliToken, "exec", "--help"], cwd, timeoutMs)}`;
         }
+        if (spec.id === "ant") {
+          cliHelp = `${cliHelp}\n${await helpText([cliToken, "messages", "create", "--help"], cwd, timeoutMs)}`;
+        }
       }
       if (spec.id === "grok" && acpOnPath) {
         cliHelp = await helpText(["grok", "agent", "--help"], cwd, timeoutMs);

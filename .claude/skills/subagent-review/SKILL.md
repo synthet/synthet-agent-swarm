@@ -1,10 +1,10 @@
 ---
 name: subagent-review
-description: Runs swarm_search, swarm_run, swarm_sessions, or run_judge_panel via the synthet-agent-swarm MCP server. Use for a read-only external review, a judge panel, harness selection, continuing a harness session, listing harness sessions, or /swarm.
-capability: "Run swarm_search, swarm_run, or run_judge_panel through the synthet-agent-swarm MCP server."
+description: Runs swarm_search, swarm_run, swarm_sessions, or swarm_panel via the synthet-agent-swarm MCP server. Use for a read-only external review, a judge panel, harness selection, continuing a harness session, listing harness sessions, or /swarm.
+capability: "Run swarm_search, swarm_run, or swarm_panel through the synthet-agent-swarm MCP server."
 side_effect_level: external_export
 approval_required: true
-requires_tools: "MCP server synthet-agent-swarm: swarm_search, swarm_run, swarm_sessions, run_judge_panel"
+requires_tools: "MCP server synthet-agent-swarm: swarm_search, swarm_run, swarm_sessions, swarm_panel"
 output_schema: "Markdown summary of harness results and agreement."
 risk_class: high
 ---
@@ -22,14 +22,14 @@ Writes stay off. Never set `allowWrites: true`.
 
 ## Steps
 
-1. Resolve the MCP server whose `serverName` is `synthet-agent-swarm`. Read the schemas for `swarm_search`, `swarm_run`, and `run_judge_panel`. The field contract is `docs/api.md` in the synthet-agent-swarm checkout. This skill's [references/mcp-tools.md](references/mcp-tools.md) is the short form.
+1. Resolve the MCP server whose `serverName` is `synthet-agent-swarm`. Read the schemas for `swarm_search`, `swarm_run`, and `swarm_panel`. The field contract is `docs/api.md` in the synthet-agent-swarm checkout. This skill's [references/mcp-tools.md](references/mcp-tools.md) is the short form.
 2. Call `swarm_search`. Show id, command, available, and transports. A query of `gemini` also returns `agy`. `agent` is the cursor row. Gemini CLI is retired: Google refuses personal sign-in, and default runs skip it. Use `agy`, which offers Gemini models.
 3. Call `swarm_run` for a review or one judgement. Omit `harnesses` for every available harness. Pass `model` or `modelChains` only when the user names models. Set `dryRun: true` when the user says dry run or you are checking setup.
-4. Call `run_judge_panel` for a frozen manifest. Blind panels reject `extraContext`. The tool does not call Jev.
+4. Call `swarm_panel` for a frozen manifest. Blind panels reject `extraContext`. The tool does not call Jev.
 5. Read each row's `outcome` before its summary. Only `ok` is a complete reply; `permission_denied` and `soft_denied` replies may be missing what the harness was not allowed to read. Exit 0 alone proves nothing.
 6. Read `.agent-runs/` and summarize. Code-review findings use severity blocker, high, medium, low, or nit. Agreement is not a human label. Do not apply patches unless the user asks.
 
-Old names `detect_subagents`, `run_subagent`, and `run_judge_swarm` still work and return the previous JSON shape. New calls use `swarm_search` and `swarm_run`.
+Typed text questions use `swarm_choice`, `swarm_score`, `swarm_noul`, or `swarm_system_one`. `swarm_decide` is the same engine with a looser question shape. These do not call the paid Jev service.
 
 ## Sessions
 

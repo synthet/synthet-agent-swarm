@@ -15,6 +15,9 @@ function judgeHow(agent: string): string {
     return JUDGE_HOW[agent];
   }
   if (agent === "agy") return JUDGE_HOW.antigravity;
+  if (agent === "ant") {
+    return "This call is one Messages API request. It cannot open files or run tools. Answer only from the task text. Evidence paths are names, not file contents.";
+  }
   return "Read only the listed evidence. Do not modify files or run programs.";
 }
 

@@ -1,22 +1,30 @@
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
-import { detectSubagents } from "./detectSubagents.js";
 import { runJudgePanelInputSchema, runJudgePanelTool } from "./runJudgePanel.js";
-import { runJudgeSwarmInputSchema, runJudgeSwarmTool } from "./runJudgeSwarm.js";
-import { runSubagentInputSchema, runSubagentTool } from "./runSubagent.js";
 import { swarmSearch, swarmSearchInputSchema } from "./swarmSearch.js";
 import { invalidArguments, swarmRunInputSchema, swarmRunTool } from "./swarmRun.js";
 import { swarmDecideInputSchema, swarmDecideTool } from "./swarmDecide.js";
+import {
+  swarmChoiceInputSchema,
+  swarmChoiceTool,
+  swarmNoulInputSchema,
+  swarmNoulTool,
+  swarmScoreInputSchema,
+  swarmScoreTool,
+  swarmSystemOneInputSchema,
+  swarmSystemOneTool,
+} from "./swarmJev.js";
 import { swarmSessionsInputSchema, swarmSessionsTool } from "./swarmSessions.js";
 
 export const TOOL_NAMES = [
   "swarm_search",
   "swarm_run",
-  "swarm_decide",
   "swarm_sessions",
-  "run_judge_panel",
-  "detect_subagents",
-  "run_subagent",
-  "run_judge_swarm",
+  "swarm_panel",
+  "swarm_decide",
+  "swarm_choice",
+  "swarm_score",
+  "swarm_noul",
+  "swarm_system_one",
 ] as const;
 
 const READ_ONLY = {
@@ -82,6 +90,70 @@ export function registerSwarmTools(server: McpServer): void {
   );
 
   server.registerTool(
+    "swarm_noul",
+    {
+      description:
+        "One yes/no probability over a local harness. Not the paid Jev service. Optional criteria is an object.",
+      inputSchema: swarmNoulInputSchema.shape,
+      annotations: READ_ONLY,
+    },
+    async (input) => {
+      const parsed = swarmNoulInputSchema.safeParse(input);
+      if (!parsed.success) return textResult(invalidArguments(parsed.error.flatten()), true);
+      const result = await swarmNoulTool(parsed.data);
+      return textResult(result, !result.ok);
+    },
+  );
+
+  server.registerTool(
+    "swarm_choice",
+    {
+      description:
+        "One choice from a criteria object over a local harness. Not the paid Jev service. Include a no-match option when none may fit.",
+      inputSchema: swarmChoiceInputSchema.shape,
+      annotations: READ_ONLY,
+    },
+    async (input) => {
+      const parsed = swarmChoiceInputSchema.safeParse(input);
+      if (!parsed.success) return textResult(invalidArguments(parsed.error.flatten()), true);
+      const result = await swarmChoiceTool(parsed.data);
+      return textResult(result, !result.ok);
+    },
+  );
+
+  server.registerTool(
+    "swarm_score",
+    {
+      description:
+        "One score on an ordered low-to-high criteria list over a local harness. Not the paid Jev service. Scores run from 0 to N-1.",
+      inputSchema: swarmScoreInputSchema.shape,
+      annotations: READ_ONLY,
+    },
+    async (input) => {
+      const parsed = swarmScoreInputSchema.safeParse(input);
+      if (!parsed.success) return textResult(invalidArguments(parsed.error.flatten()), true);
+      const result = await swarmScoreTool(parsed.data);
+      return textResult(result, !result.ok);
+    },
+  );
+
+  server.registerTool(
+    "swarm_system_one",
+    {
+      description:
+        "Several noul, choice, and score questions on one state, over a local harness. Not the paid Jev service. Images and box questions are not accepted.",
+      inputSchema: swarmSystemOneInputSchema.shape,
+      annotations: READ_ONLY,
+    },
+    async (input) => {
+      const parsed = swarmSystemOneInputSchema.safeParse(input);
+      if (!parsed.success) return textResult(invalidArguments(parsed.error.flatten()), true);
+      const result = await swarmSystemOneTool(parsed.data);
+      return textResult(result, !result.ok);
+    },
+  );
+
+  server.registerTool(
     "swarm_sessions",
     {
       description:
@@ -97,7 +169,7 @@ export function registerSwarmTools(server: McpServer): void {
   );
 
   server.registerTool(
-    "run_judge_panel",
+    "swarm_panel",
     {
       description:
         "Validate a frozen manifest, run the read-only swarm, and return votes plus a text-only Jev state. Does not call Jev or render images. Blind panels reject extraContext. Votes are not ground truth.",
@@ -114,44 +186,4 @@ export function registerSwarmTools(server: McpServer): void {
     },
   );
 
-  server.registerTool(
-    "detect_subagents",
-    {
-      description:
-        "Compatibility wrapper. Prefer swarm_search. Returns the legacy codex, antigravity, and claude detection records.",
-      inputSchema: {},
-      annotations: READ_ONLY,
-    },
-    async () => textResult(await detectSubagents()),
-  );
-
-  server.registerTool(
-    "run_subagent",
-    {
-      description:
-        "Compatibility wrapper. Prefer swarm_run. Runs one of codex, antigravity, or claude in read-only mode.",
-      inputSchema: runSubagentInputSchema.shape,
-      annotations: READ_ONLY,
-    },
-    async (input) => {
-      const parsed = runSubagentInputSchema.parse(input);
-      const result = await runSubagentTool(parsed);
-      return textResult(result, !result.ok);
-    },
-  );
-
-  server.registerTool(
-    "run_judge_swarm",
-    {
-      description:
-        "Compatibility wrapper. Prefer swarm_run. Runs the same read-only judgement on the legacy judges and reports strict-majority agreement.",
-      inputSchema: runJudgeSwarmInputSchema.shape,
-      annotations: READ_ONLY,
-    },
-    async (input) => {
-      const parsed = runJudgeSwarmInputSchema.parse(input);
-      const result = await runJudgeSwarmTool(parsed);
-      return textResult(result, !result.ok);
-    },
-  );
 }

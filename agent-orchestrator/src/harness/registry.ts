@@ -151,6 +151,17 @@ export const HARNESS_SPECS: HarnessSpec[] = [
     acpArgv: ["grok", "agent", "stdio"],
     notes: ["ACP only in this slice: grok agent stdio. There is no one-shot CLI runner."],
   },
+  {
+    id: "ant",
+    title: "Claude API",
+    command: "ant messages create",
+    cliArgv: ["ant", "messages", "create"],
+    acpArgv: null,
+    notes: [
+      "One Messages API call. The prompt is the user message on stdin. It cannot open files or run tools.",
+      "Uses the signed-in ant profile. ANTHROPIC_API_KEY in the environment replaces that sign-in.",
+    ],
+  },
 ];
 
 const HARNESS_IDS = new Set<string>(HARNESS_SPECS.map((spec) => spec.id));
@@ -167,6 +178,7 @@ export function modelFlagFromHelp(help: string): "--model" | null {
 export function cliTransportFromHelp(id: HarnessId, help: string): boolean {
   if (id === "grok") return false;
   if (id === "codex") return /\bexec\b/.test(help);
+  if (id === "ant") return /\bmessages\b/.test(help);
   return promptFlagFromHelp(help) !== undefined;
 }
 
@@ -222,7 +234,7 @@ export function classifyObservation(input: {
   if (acp) transports.push("acp");
 
   let cliMode: HarnessObservation["cliMode"] = null;
-  if (cli && input.spec.id === "codex") cliMode = "exec";
+  if (cli && (input.spec.id === "codex" || input.spec.id === "ant")) cliMode = "exec";
   else if (cli && input.spec.id === "agy") cliMode = "prompt";
   else if (cli) cliMode = "print";
 
